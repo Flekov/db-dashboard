@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Backups - DB Dashboard</title>
+    <link rel="stylesheet" href="../assets/css/main.css" />
+  </head>
+  <body class="page-app" data-auth="required">
+    <div class="bg-noise"></div>
+    <header class="app-bar">
+      <div class="brand">
+        <div class="logo">DB</div>
+        <div>
+          <div class="title">DB Dashboard</div>
+          <div class="subtitle">backups</div>
+        </div>
+      </div>
+      <div class="user-pill" id="user-pill">...</div>
+    </header>
+    <div class="app-shell">
+      <nav class="side-nav">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="projects.html">Projects</a>
+        <a href="templates.html">Templates</a>
+        <a href="servers.html">Servers</a>
+        <a class="active" href="backups.html">Backups</a>
+        <a href="admin.html">Admin</a>
+        <button id="logout-btn" class="link">Logout</button>
+      </nav>
+      <main class="content">
+        <section class="panel two-col">
+          <div>
+            <h2>New backup</h2>
+            <form id="backup-form" class="stack">
+              <input type="number" name="project_id" placeholder="Project ID" required />
+              <input type="text" name="backup_type" placeholder="Type (sql/code/data)" required />
+              <input type="text" name="location" placeholder="Path" />
+              <input type="text" name="version_label" placeholder="Version" />
+              <button type="submit" class="btn">Save</button>
+            </form>
+          </div>
+          <div>
+            <h2>Restore</h2>
+            <p class="muted">Automated restore by version will be added here.</p>
+          </div>
+        </section>
+        <section class="panel">
+          <h2>Backups</h2>
+          <div id="backups-table" class="table"></div>
+        </section>
+      </main>
+    </div>
+    <script src="../assets/js/api.js"></script>
+    <script src="../assets/js/app.js"></script>
+    <script src="../assets/js/backups.js"></script>
+  </body>
+</html>

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Projects - DB Dashboard</title>
+    <link rel="stylesheet" href="../assets/css/main.css" />
+  </head>
+  <body class="page-app" data-auth="required">
+    <div class="bg-noise"></div>
+    <header class="app-bar">
+      <div class="brand">
+        <div class="logo">DB</div>
+        <div>
+          <div class="title">DB Dashboard</div>
+          <div class="subtitle">projects</div>
+        </div>
+      </div>
+      <div class="user-pill" id="user-pill">...</div>
+    </header>
+    <div class="app-shell">
+      <nav class="side-nav">
+        <a href="dashboard.html">Dashboard</a>
+        <a class="active" href="projects.html">Projects</a>
+        <a href="templates.html">Templates</a>
+        <a href="servers.html">Servers</a>
+        <a href="backups.html">Backups</a>
+        <a href="admin.html">Admin</a>
+        <button id="logout-btn" class="link">Logout</button>
+      </nav>
+      <main class="content">
+        <section class="panel two-col">
+          <div>
+            <h2>New project</h2>
+            <form id="project-form" class="stack">
+              <input type="text" name="code" placeholder="Code (e.g. 7777)" required />
+              <input type="text" name="name" placeholder="Project name" required />
+              <input type="text" name="short_name" placeholder="Short name" />
+              <input type="text" name="version" placeholder="Version" />
+              <input type="text" name="type" placeholder="Type (mysql/apache/xampp)" />
+              <button type="submit" class="btn">Save</button>
+            </form>
+          </div>
+          <div>
+            <h2>Bulk import</h2>
+            <p class="muted">Accepts a JSON array of objects: code, name, short_name, version, type, participants.</p>
+            <textarea id="bulk-input" rows="8" placeholder='[{"code":"7777","name":"MyWeb","short_name":"myweb","version":"v2","type":"mysql","participants":["7777","8888"]}]'></textarea>
+            <button id="bulk-import" class="btn ghost">Import</button>
+          </div>
+        </section>
+        <section class="panel">
+          <h2>Projects</h2>
+          <div id="projects-table" class="table"></div>
+        </section>
+      </main>
+    </div>
+    <script src="../assets/js/api.js"></script>
+    <script src="../assets/js/app.js"></script>
+    <script src="../assets/js/projects.js"></script>
+  </body>
+</html>

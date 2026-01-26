@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin - DB Dashboard</title>
+    <link rel="stylesheet" href="../assets/css/main.css" />
+  </head>
+  <body class="page-app" data-auth="required">
+    <div class="bg-noise"></div>
+    <header class="app-bar">
+      <div class="brand">
+        <div class="logo">DB</div>
+        <div>
+          <div class="title">DB Dashboard</div>
+          <div class="subtitle">admin</div>
+        </div>
+      </div>
+      <div class="user-pill" id="user-pill">...</div>
+    </header>
+    <div class="app-shell">
+      <nav class="side-nav">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="projects.html">Projects</a>
+        <a href="templates.html">Templates</a>
+        <a href="servers.html">Servers</a>
+        <a href="backups.html">Backups</a>
+        <a class="active" href="admin.html">Admin</a>
+        <button id="logout-btn" class="link">Logout</button>
+      </nav>
+      <main class="content">
+        <section class="panel">
+          <h2>Administration</h2>
+          <p class="muted">Quick admin operations for users, roles, and policies.</p>
+          <div id="admin-panel" class="table"></div>
+        </section>
+      </main>
+    </div>
+    <script src="../assets/js/api.js"></script>
+    <script src="../assets/js/app.js"></script>
+    <script src="../assets/js/admin.js"></script>
+  </body>
+</html>

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Servers - DB Dashboard</title>
+    <link rel="stylesheet" href="../assets/css/main.css" />
+  </head>
+  <body class="page-app" data-auth="required">
+    <div class="bg-noise"></div>
+    <header class="app-bar">
+      <div class="brand">
+        <div class="logo">DB</div>
+        <div>
+          <div class="title">DB Dashboard</div>
+          <div class="subtitle">servers</div>
+        </div>
+      </div>
+      <div class="user-pill" id="user-pill">...</div>
+    </header>
+    <div class="app-shell">
+      <nav class="side-nav">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="projects.html">Projects</a>
+        <a href="templates.html">Templates</a>
+        <a class="active" href="servers.html">Servers</a>
+        <a href="backups.html">Backups</a>
+        <a href="admin.html">Admin</a>
+        <button id="logout-btn" class="link">Logout</button>
+      </nav>
+      <main class="content">
+        <section class="panel two-col">
+          <div>
+            <h2>New DB server</h2>
+            <form id="server-form" class="stack">
+              <input type="text" name="name" placeholder="Name" required />
+              <input type="text" name="host" placeholder="Host" required />
+              <input type="number" name="port" placeholder="Port" value="3306" />
+              <input type="text" name="type" placeholder="Type (mysql)" required />
+              <input type="text" name="version" placeholder="Version" />
+              <input type="text" name="root_user" placeholder="Root user" />
+              <button type="submit" class="btn">Save</button>
+            </form>
+          </div>
+          <div>
+            <h2>Notes</h2>
+            <p class="muted">Use this section to record root credentials and active instances for running scripts.</p>
+          </div>
+        </section>
+        <section class="panel">
+          <h2>Servers</h2>
+          <div id="servers-table" class="table"></div>
+        </section>
+      </main>
+    </div>
+    <script src="../assets/js/api.js"></script>
+    <script src="../assets/js/app.js"></script>
+    <script src="../assets/js/servers.js"></script>
+  </body>
+</html>

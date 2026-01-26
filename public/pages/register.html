@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Register - DB Dashboard</title>
+    <link rel="stylesheet" href="../assets/css/main.css" />
+  </head>
+  <body class="page-auth">
+    <div class="bg-noise"></div>
+    <main class="auth-card">
+      <h1>Create account</h1>
+      <p class="muted">The first user becomes an admin.</p>
+      <form id="register-form">
+        <label>Name</label>
+        <input type="text" name="name" required />
+        <label>Email</label>
+        <input type="email" name="email" required />
+        <label>Password</label>
+        <input type="password" name="password" required />
+        <button type="submit" class="btn">Create account</button>
+      </form>
+      <div class="auth-footer">
+        <a href="login.html">Already have an account? Sign in</a>
+      </div>
+    </main>
+    <script src="../assets/js/api.js"></script>
+    <script src="../assets/js/register.js"></script>
+  </body>
+</html>
