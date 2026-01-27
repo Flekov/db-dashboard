@@ -10,6 +10,7 @@ use App\Controllers\ServerController;
 use App\Controllers\ActionController;
 use App\Controllers\BackupController;
 use App\Controllers\VhostController;
+use App\Controllers\UserController;
 
 $router = new Router();
 
@@ -20,23 +21,34 @@ $router->add('GET', '/auth/me', [AuthController::class, 'me']);
 
 $router->add('GET', '/servers', [ServerController::class, 'list']);
 $router->add('POST', '/servers', [ServerController::class, 'create']);
+$router->add('PUT', '/servers/{id}', [ServerController::class, 'update']);
+$router->add('DELETE', '/servers/{id}', [ServerController::class, 'delete']);
 
 $router->add('GET', '/templates', [TemplateController::class, 'list']);
 $router->add('POST', '/templates', [TemplateController::class, 'create']);
+$router->add('PUT', '/templates/{id}', [TemplateController::class, 'update']);
+$router->add('DELETE', '/templates/{id}', [TemplateController::class, 'delete']);
 
 $router->add('GET', '/projects', [ProjectController::class, 'list']);
 $router->add('POST', '/projects', [ProjectController::class, 'create']);
 $router->add('POST', '/projects/import', [ProjectController::class, 'import']);
 $router->add('GET', '/projects/{id}', [ProjectController::class, 'show']);
+$router->add('PUT', '/projects/{id}', [ProjectController::class, 'update']);
+$router->add('DELETE', '/projects/{id}', [ProjectController::class, 'delete']);
 
 $router->add('GET', '/projects/{id}/actions', [ActionController::class, 'list']);
 $router->add('POST', '/projects/{id}/actions', [ActionController::class, 'create']);
 
 $router->add('GET', '/projects/{id}/backups', [BackupController::class, 'list']);
 $router->add('POST', '/projects/{id}/backups', [BackupController::class, 'create']);
+$router->add('PUT', '/projects/{id}/backups/{backupId}', [BackupController::class, 'update']);
+$router->add('DELETE', '/projects/{id}/backups/{backupId}', [BackupController::class, 'delete']);
 
 $router->add('GET', '/vhosts', [VhostController::class, 'list']);
 $router->add('POST', '/vhosts', [VhostController::class, 'create']);
+
+$router->add('PUT', '/users/{id}', [UserController::class, 'update']);
+$router->add('DELETE', '/users/{id}', [UserController::class, 'delete']);
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $path = $_SERVER['PATH_INFO'] ?? '/';

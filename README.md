@@ -23,7 +23,7 @@ php -S localhost:8080 -t public
 
 ## Notes
 - MySQL is used for metadata (users, projects, templates, actions, backups).
-- Connection settings are in `src/config.php`.
+- Connection settings are in `config.json`.
 - Seed users from `database/init.sql`:
   - `admin@example.com` / `password`
   - `demo@example.com` / `password`

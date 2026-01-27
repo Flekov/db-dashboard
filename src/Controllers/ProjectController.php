@@ -99,4 +99,67 @@ final class ProjectController
         $pdo->commit();
         Response::json(['ok' => true]);
     }
+
+    public function update(array $params): void
+    {
+        (new AuthService())->requireUser();
+        $id = (int) ($params['id'] ?? 0);
+        if ($id <= 0) {
+            Response::json(['error' => 'Invalid project id'], 422);
+        }
+
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+
+        $fields = [
+            'code' => trim((string) ($data['code'] ?? '')),
+            'name' => trim((string) ($data['name'] ?? '')),
+            'short_name' => trim((string) ($data['short_name'] ?? '')),
+            'version' => trim((string) ($data['version'] ?? '')),
+            'type' => trim((string) ($data['type'] ?? '')),
+            'status' => trim((string) ($data['status'] ?? 'active')),
+        ];
+
+        if ($fields['code'] === '' || $fields['name'] === '') {
+            Response::json(['error' => 'Missing fields'], 422);
+        }
+
+        $pdo = Connection::get();
+        $stmt = $pdo->prepare('UPDATE projects SET code = :code, name = :name, short_name = :short_name, version = :version, type = :type, status = :status WHERE id = :id');
+        $stmt->execute([
+            ':code' => $fields['code'],
+            ':name' => $fields['name'],
+            ':short_name' => $fields['short_name'],
+            ':version' => $fields['version'],
+            ':type' => $fields['type'],
+            ':status' => $fields['status'],
+            ':id' => $id,
+        ]);
+
+        Response::json(['ok' => true]);
+    }
+
+    public function delete(array $params): void
+    {
+        (new AuthService())->requireUser();
+        $id = (int) ($params['id'] ?? 0);
+        if ($id <= 0) {
+            Response::json(['error' => 'Invalid project id'], 422);
+        }
+
+        $pdo = Connection::get();
+        $pdo->beginTransaction();
+        $stmt = $pdo->prepare('DELETE FROM actions WHERE project_id = :project_id');
+        $stmt->execute([':project_id' => $id]);
+        $stmt = $pdo->prepare('DELETE FROM backups WHERE project_id = :project_id');
+        $stmt->execute([':project_id' => $id]);
+        $stmt = $pdo->prepare('DELETE FROM vhosts WHERE project_id = :project_id');
+        $stmt->execute([':project_id' => $id]);
+        $stmt = $pdo->prepare('DELETE FROM project_participants WHERE project_id = :project_id');
+        $stmt->execute([':project_id' => $id]);
+        $stmt = $pdo->prepare('DELETE FROM projects WHERE id = :id');
+        $stmt->execute([':id' => $id]);
+        $pdo->commit();
+
+        Response::json(['ok' => true]);
+    }
 }

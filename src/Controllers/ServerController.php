@@ -39,4 +39,47 @@ final class ServerController
 
         Response::json(['id' => (int) $pdo->lastInsertId()], 201);
     }
+
+    public function update(array $params): void
+    {
+        (new AuthService())->requireUser();
+        $id = (int) ($params['id'] ?? 0);
+        if ($id <= 0) {
+            Response::json(['error' => 'Invalid server id'], 422);
+        }
+
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        if (empty($data['name']) || empty($data['host']) || empty($data['type'])) {
+            Response::json(['error' => 'Missing fields'], 422);
+        }
+
+        $pdo = Connection::get();
+        $stmt = $pdo->prepare('UPDATE servers SET name = :name, host = :host, port = :port, type = :type, version = :version, root_user = :root_user WHERE id = :id');
+        $stmt->execute([
+            ':name' => trim($data['name']),
+            ':host' => trim($data['host']),
+            ':port' => (int) ($data['port'] ?? 3306),
+            ':type' => trim($data['type']),
+            ':version' => trim($data['version'] ?? ''),
+            ':root_user' => trim($data['root_user'] ?? ''),
+            ':id' => $id,
+        ]);
+
+        Response::json(['ok' => true]);
+    }
+
+    public function delete(array $params): void
+    {
+        (new AuthService())->requireUser();
+        $id = (int) ($params['id'] ?? 0);
+        if ($id <= 0) {
+            Response::json(['error' => 'Invalid server id'], 422);
+        }
+
+        $pdo = Connection::get();
+        $stmt = $pdo->prepare('DELETE FROM servers WHERE id = :id');
+        $stmt->execute([':id' => $id]);
+
+        Response::json(['ok' => true]);
+    }
 }

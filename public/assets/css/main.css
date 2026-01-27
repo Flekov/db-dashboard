@@ -365,3 +365,103 @@ input:focus, textarea:focus {
     padding: 2rem;
   }
 }
+/* Modal */
+.modal {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 50;
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(27, 23, 19, 0.4);
+  backdrop-filter: blur(4px);
+}
+
+.modal-card {
+  position: relative;
+  width: min(640px, 92vw);
+  background: linear-gradient(160deg, #ffffff, var(--surface));
+  border-radius: var(--radius-lg);
+  box-shadow: 0 30px 60px var(--shadow-strong);
+  padding: 1.8rem;
+  z-index: 1;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.modal-header h3 {
+  margin: 0;
+}
+
+.modal-close {
+  border: none;
+  background: transparent;
+  font-size: 1.1rem;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.8rem;
+  margin-top: 1.2rem;
+}
+
+.modal.is-view .modal-actions {
+  display: none;
+}
+
+.modal-form-field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.modal-form-field label {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.table-row .row-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.table-row .row-actions button {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+}
+.btn.danger {
+  background: linear-gradient(135deg, #b91c1c, #ef4444);
+  box-shadow: 0 14px 26px rgba(185, 28, 28, 0.22);
+}
+
+.btn.danger.ghost {
+  background: transparent;
+  color: #b91c1c;
+  border: 1px solid rgba(185, 28, 28, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(185, 28, 28, 0.12);
+}
+.confirm-modal {
+  width: min(480px, 92vw);
+}
+
+.confirm-message {
+  margin: 0.5rem 0 1.2rem;
+  color: var(--muted);
+}
