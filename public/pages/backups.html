@@ -46,7 +46,13 @@
           </div>
         </section>
         <section class="panel">
-          <h2>Backups</h2>
+          <div class="panel-header">
+            <h2>Backups</h2>
+            <form id="backups-filter-form" class="inline-form">
+              <input type="number" id="backups-filter-project" name="project_id" placeholder="Project ID" min="1" />
+              <button type="submit" class="btn ghost">Filter</button>
+            </form>
+          </div>
           <div id="backups-table" class="table"></div>
         </section>
       </main>
@@ -82,6 +88,7 @@
     </div>
 
     <script src="../assets/js/api.js"></script>
-    <script src="../assets/js/app.js"></script>    <script src="../assets/js/backups.js"></script>
+    <script src="../assets/js/app.js"></script>    
+    <script src="../assets/js/backups.js"></script>
   </body>
 </html>

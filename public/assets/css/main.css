@@ -304,6 +304,25 @@ input:focus, textarea:focus {
   box-shadow: 0 20px 40px var(--shadow);
 }
 
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.panel-header h2 {
+  margin: 0;
+}
+
+.inline-form {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
 .two-col {
   display: grid;
   gap: 1.5rem;
@@ -329,6 +348,31 @@ input:focus, textarea:focus {
   background: #fffdf9;
   border: 1px solid rgba(0, 0, 0, 0.06);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.table-row.table-header {
+  background: linear-gradient(120deg, rgba(31, 138, 112, 0.12), rgba(230, 83, 47, 0.08));
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--muted);
+  box-shadow: none;
+}
+
+.table-row.table-header:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.table-row.table-empty {
+  background: #fff;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.table-row.table-empty > div {
+  grid-column: 1 / -1;
 }
 
 .table-row:hover {

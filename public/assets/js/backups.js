@@ -9,6 +9,9 @@ const confirmMessage = document.getElementById('confirm-message');
 const confirmOk = document.getElementById('confirm-ok');
 const confirmCancel = document.getElementById('confirm-cancel');
 
+const filterForm = document.getElementById('backups-filter-form');
+const filterProjectInput = document.getElementById('backups-filter-project');
+
 const backupFields = [
   { name: 'id', label: 'ID', readOnly: true },
   { name: 'project_id', label: 'Project ID', readOnly: true },
@@ -119,9 +122,31 @@ modal.addEventListener('click', (event) => {
 
 modalCancel.addEventListener('click', closeModal);
 
-async function loadBackups() {
-  const data = await apiRequest('/projects/1/backups').catch(() => ({ items: [] }));
-  backupsTable.innerHTML = data.items.map((item) => {
+let currentProjectId = 1;
+
+function normalizeProjectId(value) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+async function loadBackups(projectId = currentProjectId) {
+  const header = `
+    <div class="table-row table-header">
+      <div>ID</div>
+      <div>Project ID</div>
+      <div>Type</div>
+      <div>Version</div>
+      <div>Location</div>
+      <div>Actions</div>
+    </div>
+  `;
+  if (!Number.isFinite(projectId) || projectId <= 0) {
+    backupsTable.innerHTML = header + '<div class="table-row table-empty"><div>Enter a project id to load backups.</div></div>';
+    return;
+  }
+  currentProjectId = projectId;
+  const data = await apiRequest(`/projects/${projectId}/backups`).catch(() => ({ items: [] }));
+  const rows = data.items.map((item) => {
     const encoded = encodeURIComponent(JSON.stringify(item));
     return `
       <div class="table-row">
@@ -138,6 +163,10 @@ async function loadBackups() {
       </div>
     `;
   }).join('');
+  const empty = data.items.length
+    ? ''
+    : '<div class="table-row table-empty"><div>No backups found.</div></div>';
+  backupsTable.innerHTML = header + rows + empty;
 }
 
 backupsTable.addEventListener('click', async (event) => {
@@ -160,13 +189,35 @@ backupsTable.addEventListener('click', async (event) => {
   openModal(button.dataset.action, item);
 });
 
-loadBackups();
+if (filterProjectInput) {
+  const initialProjectId = normalizeProjectId(filterProjectInput.value) ?? currentProjectId;
+  currentProjectId = initialProjectId;
+  filterProjectInput.value = currentProjectId;
+}
+
+loadBackups(currentProjectId);
+
+if (filterForm) {
+  filterForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const nextProjectId = normalizeProjectId(filterProjectInput.value);
+    if (!nextProjectId) {
+      alert('Enter a valid project id to filter backups.');
+      return;
+    }
+    await loadBackups(nextProjectId);
+  });
+}
 
 const backupForm = document.getElementById('backup-form');
 backupForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = event.target;
-  const projectId = form.project_id.value.trim();
+  const projectId = normalizeProjectId(form.project_id.value);
+  if (!projectId) {
+    alert('Enter a valid project id for the backup.');
+    return;
+  }
 
   const payload = {
     backup_type: form.backup_type.value.trim(),
@@ -180,7 +231,10 @@ backupForm.addEventListener('submit', async (event) => {
       body: JSON.stringify(payload),
     });
     form.reset();
-    await loadBackups();
+    if (filterProjectInput) {
+      filterProjectInput.value = projectId;
+    }
+    await loadBackups(projectId);
   } catch (err) {
     alert(err.message);
   }

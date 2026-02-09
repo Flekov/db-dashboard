@@ -133,7 +133,16 @@ async function loadDashboard() {
     document.getElementById('stat-templates').textContent = templates.items.length;
     document.getElementById('stat-actions').textContent = actions.items.length;
 
-    recentProjects.innerHTML = projects.items.slice(0, 5).map((item) => {
+    const header = `
+      <div class="table-row table-header">
+        <div>Code</div>
+        <div>Name</div>
+        <div>Version</div>
+        <div>Type</div>
+        <div>Actions</div>
+      </div>
+    `;
+    const rows = projects.items.slice(0, 5).map((item) => {
       const encoded = encodeURIComponent(JSON.stringify(item));
       return `
         <div class="table-row">
@@ -149,6 +158,10 @@ async function loadDashboard() {
         </div>
       `;
     }).join('');
+    const empty = projects.items.length
+      ? ''
+      : '<div class="table-row table-empty"><div>No projects found.</div></div>';
+    recentProjects.innerHTML = header + rows + empty;
   } catch (err) {
     console.error(err);
   }

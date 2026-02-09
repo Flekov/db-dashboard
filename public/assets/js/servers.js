@@ -124,7 +124,17 @@ modalCancel.addEventListener('click', closeModal);
 
 async function loadServers() {
   const data = await apiRequest('/servers');
-  serversTable.innerHTML = data.items.map((item) => {
+  const header = `
+    <div class="table-row table-header">
+      <div>ID</div>
+      <div>Name</div>
+      <div>Host</div>
+      <div>Type</div>
+      <div>Version</div>
+      <div>Actions</div>
+    </div>
+  `;
+  const rows = data.items.map((item) => {
     const encoded = encodeURIComponent(JSON.stringify(item));
     return `
       <div class="table-row">
@@ -141,6 +151,10 @@ async function loadServers() {
       </div>
     `;
   }).join('');
+  const empty = data.items.length
+    ? ''
+    : '<div class="table-row table-empty"><div>No servers found.</div></div>';
+  serversTable.innerHTML = header + rows + empty;
 }
 
 serversTable.addEventListener('click', async (event) => {

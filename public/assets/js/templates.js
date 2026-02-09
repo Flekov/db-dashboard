@@ -150,7 +150,16 @@ modalCancel.addEventListener('click', closeModal);
 
 async function loadTemplates() {
   const data = await apiRequest('/templates');
-  templatesTable.innerHTML = data.items.map((item) => {
+  const header = `
+    <div class="table-row table-header">
+      <div>ID</div>
+      <div>Name</div>
+      <div>DB type</div>
+      <div>DB version</div>
+      <div>Actions</div>
+    </div>
+  `;
+  const rows = data.items.map((item) => {
     const encoded = encodeURIComponent(JSON.stringify(item));
     return `
       <div class="table-row">
@@ -166,6 +175,10 @@ async function loadTemplates() {
       </div>
     `;
   }).join('');
+  const empty = data.items.length
+    ? ''
+    : '<div class="table-row table-empty"><div>No templates found.</div></div>';
+  templatesTable.innerHTML = header + rows + empty;
 }
 
 templatesTable.addEventListener('click', async (event) => {

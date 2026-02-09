@@ -121,7 +121,15 @@ async function loadAdmin() {
   try {
     const data = await apiRequest('/auth/me');
     const encoded = encodeURIComponent(JSON.stringify(data));
-    adminPanel.innerHTML = `
+    const header = `
+      <div class="table-row table-header">
+        <div>Name</div>
+        <div>Email</div>
+        <div>Role</div>
+        <div>Actions</div>
+      </div>
+    `;
+    const row = `
       <div class="table-row">
         <div>${data.name}</div>
         <div>${data.email}</div>
@@ -133,8 +141,17 @@ async function loadAdmin() {
         </div>
       </div>
     `;
+    adminPanel.innerHTML = header + row;
   } catch (err) {
-    adminPanel.innerHTML = '<div class="table-row">No data</div>';
+    const header = `
+      <div class="table-row table-header">
+        <div>Name</div>
+        <div>Email</div>
+        <div>Role</div>
+        <div>Actions</div>
+      </div>
+    `;
+    adminPanel.innerHTML = header + '<div class="table-row table-empty"><div>No data</div></div>';
   }
 }
 

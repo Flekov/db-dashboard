@@ -123,7 +123,17 @@ modalCancel.addEventListener('click', closeModal);
 
 async function loadProjects() {
   const data = await apiRequest('/projects');
-  projectsTable.innerHTML = data.items.map((item) => {
+  const header = `
+    <div class="table-row table-header">
+      <div>ID</div>
+      <div>Code</div>
+      <div>Name</div>
+      <div>Version</div>
+      <div>Type</div>
+      <div>Actions</div>
+    </div>
+  `;
+  const rows = data.items.map((item) => {
     const encoded = encodeURIComponent(JSON.stringify(item));
     return `
       <div class="table-row">
@@ -140,6 +150,10 @@ async function loadProjects() {
       </div>
     `;
   }).join('');
+  const empty = data.items.length
+    ? ''
+    : '<div class="table-row table-empty"><div>No projects found.</div></div>';
+  projectsTable.innerHTML = header + rows + empty;
 }
 
 projectsTable.addEventListener('click', async (event) => {
