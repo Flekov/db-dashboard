@@ -33,7 +33,8 @@
           <div>
             <h2>New backup</h2>
             <form id="backup-form" class="stack">
-              <input type="number" name="project_id" placeholder="Project ID" required />
+              <label>Project</label>
+              <select name="project_id" id="backup-project-select" required></select>
               <input type="text" name="backup_type" placeholder="Type (sql/code/data)" required />
               <input type="text" name="location" placeholder="Path" />
               <input type="text" name="version_label" placeholder="Version" />
@@ -49,7 +50,7 @@
           <div class="panel-header">
             <h2>Backups</h2>
             <form id="backups-filter-form" class="inline-form">
-              <input type="number" id="backups-filter-project" name="project_id" placeholder="Project ID" min="1" />
+              <select id="backups-filter-project"></select>
               <button type="submit" class="btn ghost">Filter</button>
             </form>
           </div>

@@ -13,27 +13,25 @@ final class AuthService
         $email = trim($data['email'] ?? '');
         $name = trim($data['name'] ?? '');
         $password = $data['password'] ?? '';
+        $facultyNumber = trim($data['faculty_number'] ?? '');
 
         if ($email === '' || $name === '' || $password === '') {
             Response::json(['error' => 'Missing fields'], 422);
         }
 
         $pdo = Connection::get();
-        $stmt = $pdo->prepare('SELECT COUNT(*) AS count FROM users');
-        $stmt->execute();
-        $count = (int) $stmt->fetch()['count'];
-
         $hash = password_hash($password, PASSWORD_DEFAULT);
-        $stmt = $pdo->prepare('INSERT INTO users (name, email, password_hash, created_at) VALUES (:name, :email, :hash, :created_at)');
+        $stmt = $pdo->prepare('INSERT INTO users (name, email, faculty_number, password_hash, created_at) VALUES (:name, :email, :faculty_number, :hash, :created_at)');
         $stmt->execute([
             ':name' => $name,
             ':email' => $email,
+            ':faculty_number' => $facultyNumber !== '' ? $facultyNumber : null,
             ':hash' => $hash,
             ':created_at' => date('c'),
         ]);
 
         $userId = (int) $pdo->lastInsertId();
-        $roleName = $count === 0 ? 'admin' : 'user';
+        $roleName = 'admin';
         $this->attachRole($pdo, $userId, $roleName);
 
         $token = $this->createSession($pdo, $userId);
@@ -44,6 +42,7 @@ final class AuthService
                 'id' => $userId,
                 'name' => $name,
                 'email' => $email,
+                'faculty_number' => $facultyNumber !== '' ? $facultyNumber : null,
                 'role' => $roleName,
             ],
         ];
@@ -104,7 +103,7 @@ final class AuthService
             Response::json(['error' => 'Session expired'], 401);
         }
 
-        $stmt = $pdo->prepare('SELECT id, name, email FROM users WHERE id = :id');
+        $stmt = $pdo->prepare('SELECT id, name, email, faculty_number FROM users WHERE id = :id');
         $stmt->execute([':id' => $session['user_id']]);
         $user = $stmt->fetch();
 
@@ -138,11 +137,25 @@ final class AuthService
             return;
         }
 
+        $stmt = $pdo->prepare('SELECT id FROM user_roles WHERE user_id = :user_id AND role_id = :role_id');
+        $stmt->execute([
+            ':user_id' => $userId,
+            ':role_id' => $role['id'],
+        ]);
+        if ($stmt->fetch()) {
+            return;
+        }
+
         $stmt = $pdo->prepare('INSERT INTO user_roles (user_id, role_id) VALUES (:user_id, :role_id)');
         $stmt->execute([
             ':user_id' => $userId,
             ':role_id' => $role['id'],
         ]);
+    }
+
+    public function ensureRole(PDO $pdo, int $userId, string $roleName): void
+    {
+        $this->attachRole($pdo, $userId, $roleName);
     }
 
     private function createSession(PDO $pdo, int $userId): string

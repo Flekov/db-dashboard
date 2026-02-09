@@ -35,6 +35,9 @@ $router->add('POST', '/projects/import', [ProjectController::class, 'import']);
 $router->add('GET', '/projects/{id}', [ProjectController::class, 'show']);
 $router->add('PUT', '/projects/{id}', [ProjectController::class, 'update']);
 $router->add('DELETE', '/projects/{id}', [ProjectController::class, 'delete']);
+$router->add('GET', '/projects/{id}/participants', [ProjectController::class, 'participants']);
+$router->add('POST', '/projects/{id}/participants', [ProjectController::class, 'addParticipant']);
+$router->add('DELETE', '/projects/{id}/participants/{userId}', [ProjectController::class, 'removeParticipant']);
 
 $router->add('GET', '/projects/{id}/actions', [ActionController::class, 'list']);
 $router->add('POST', '/projects/{id}/actions', [ActionController::class, 'create']);
@@ -43,12 +46,14 @@ $router->add('GET', '/projects/{id}/backups', [BackupController::class, 'list'])
 $router->add('POST', '/projects/{id}/backups', [BackupController::class, 'create']);
 $router->add('PUT', '/projects/{id}/backups/{backupId}', [BackupController::class, 'update']);
 $router->add('DELETE', '/projects/{id}/backups/{backupId}', [BackupController::class, 'delete']);
+$router->add('GET', '/backups', [BackupController::class, 'list']);
 
 $router->add('GET', '/vhosts', [VhostController::class, 'list']);
 $router->add('POST', '/vhosts', [VhostController::class, 'create']);
 
 $router->add('PUT', '/users/{id}', [UserController::class, 'update']);
 $router->add('DELETE', '/users/{id}', [UserController::class, 'delete']);
+$router->add('GET', '/users', [UserController::class, 'list']);
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $path = $_SERVER['PATH_INFO'] ?? '/';

@@ -10,10 +10,52 @@ final class BackupController
 {
     public function list(array $params): void
     {
-        (new AuthService())->requireUser();
+        $auth = new AuthService();
+        $current = $auth->requireUser();
         $pdo = Connection::get();
-        $stmt = $pdo->prepare('SELECT * FROM backups WHERE project_id = :project_id ORDER BY id DESC');
-        $stmt->execute([':project_id' => $params['id'] ?? 0]);
+        $projectId = (int) ($params['id'] ?? ($_GET['project_id'] ?? 0));
+        $projectName = trim((string) ($_GET['project'] ?? ''));
+
+        $baseJoin = ' FROM backups b JOIN projects p ON p.id = b.project_id';
+        $accessJoin = '';
+        $accessWhere = '';
+        $paramsSql = [];
+
+        if ($current['role'] !== 'admin') {
+            $accessJoin = ' LEFT JOIN project_participants pp ON pp.project_id = p.id';
+            $accessWhere = ' (p.owner_id = :user_id OR pp.user_id = :user_id)';
+            $paramsSql[':user_id'] = (int) $current['id'];
+        }
+
+        if ($projectId > 0) {
+            $where = ' b.project_id = :project_id';
+            $paramsSql[':project_id'] = $projectId;
+            if ($accessWhere) {
+                $where = $where . ' AND ' . $accessWhere;
+            }
+            $stmt = $pdo->prepare('SELECT b.*, p.name AS project_name' . $baseJoin . $accessJoin . ' WHERE ' . $where . ' ORDER BY b.id DESC');
+            $stmt->execute($paramsSql);
+            Response::json(['items' => $stmt->fetchAll()]);
+        }
+
+        if ($projectName !== '') {
+            $where = ' p.name LIKE :name';
+            $paramsSql[':name'] = '%' . $projectName . '%';
+            if ($accessWhere) {
+                $where = $where . ' AND ' . $accessWhere;
+            }
+            $stmt = $pdo->prepare('SELECT b.*, p.name AS project_name' . $baseJoin . $accessJoin . ' WHERE ' . $where . ' ORDER BY b.id DESC');
+            $stmt->execute($paramsSql);
+            Response::json(['items' => $stmt->fetchAll()]);
+        }
+
+        $query = 'SELECT b.*, p.name AS project_name' . $baseJoin . $accessJoin;
+        if ($accessWhere) {
+            $query .= ' WHERE ' . $accessWhere;
+        }
+        $query .= ' ORDER BY b.id DESC';
+        $stmt = $pdo->prepare($query);
+        $stmt->execute($paramsSql);
         Response::json(['items' => $stmt->fetchAll()]);
     }
 

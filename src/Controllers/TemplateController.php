@@ -10,9 +10,52 @@ final class TemplateController
 {
     public function list(): void
     {
-        (new AuthService())->requireUser();
+        $auth = new AuthService();
+        $current = $auth->requireUser();
         $pdo = Connection::get();
-        $stmt = $pdo->query('SELECT * FROM templates ORDER BY id DESC');
+        $projectId = (int) ($_GET['project_id'] ?? 0);
+        $projectName = trim((string) ($_GET['project'] ?? ''));
+
+        $baseJoin = ' FROM templates t JOIN projects p ON p.id = t.project_id';
+        $accessJoin = '';
+        $accessWhere = '';
+        $params = [];
+
+        if ($current['role'] !== 'admin') {
+            $accessJoin = ' LEFT JOIN project_participants pp ON pp.project_id = p.id';
+            $accessWhere = ' (p.owner_id = :user_id OR pp.user_id = :user_id)';
+            $params[':user_id'] = (int) $current['id'];
+        }
+
+        if ($projectId > 0) {
+            $where = ' t.project_id = :project_id';
+            $params[':project_id'] = $projectId;
+            if ($accessWhere) {
+                $where = $where . ' AND ' . $accessWhere;
+            }
+            $stmt = $pdo->prepare('SELECT t.*, p.name AS project_name' . $baseJoin . $accessJoin . ' WHERE ' . $where . ' ORDER BY t.id DESC');
+            $stmt->execute($params);
+            Response::json(['items' => $stmt->fetchAll()]);
+        }
+
+        if ($projectName !== '') {
+            $where = ' p.name LIKE :name';
+            $params[':name'] = '%' . $projectName . '%';
+            if ($accessWhere) {
+                $where = $where . ' AND ' . $accessWhere;
+            }
+            $stmt = $pdo->prepare('SELECT t.*, p.name AS project_name' . $baseJoin . $accessJoin . ' WHERE ' . $where . ' ORDER BY t.id DESC');
+            $stmt->execute($params);
+            Response::json(['items' => $stmt->fetchAll()]);
+        }
+
+        $query = 'SELECT t.*, p.name AS project_name' . $baseJoin . $accessJoin;
+        if ($accessWhere) {
+            $query .= ' WHERE ' . $accessWhere;
+        }
+        $query .= ' ORDER BY t.id DESC';
+        $stmt = $pdo->prepare($query);
+        $stmt->execute($params);
         Response::json(['items' => $stmt->fetchAll()]);
     }
 
@@ -21,13 +64,27 @@ final class TemplateController
         (new AuthService())->requireUser();
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
 
-        if (empty($data['name']) || empty($data['db_type'])) {
+        $projectId = (int) ($data['project_id'] ?? 0);
+        if ($projectId <= 0 || empty($data['name']) || empty($data['db_type'])) {
             Response::json(['error' => 'Missing fields'], 422);
         }
 
         $pdo = Connection::get();
-        $stmt = $pdo->prepare('INSERT INTO templates (name, db_type, db_version, stack_version, notes, body_json, created_at) VALUES (:name, :db_type, :db_version, :stack_version, :notes, :body_json, :created_at)');
+        $stmt = $pdo->prepare('SELECT id FROM projects WHERE id = :id');
+        $stmt->execute([':id' => $projectId]);
+        if (!$stmt->fetch()) {
+            Response::json(['error' => 'Project not found'], 404);
+        }
+
+        $stmt = $pdo->prepare('SELECT id FROM templates WHERE project_id = :project_id');
+        $stmt->execute([':project_id' => $projectId]);
+        if ($stmt->fetch()) {
+            Response::json(['error' => 'Template already exists for project'], 409);
+        }
+
+        $stmt = $pdo->prepare('INSERT INTO templates (project_id, name, db_type, db_version, stack_version, notes, body_json, created_at) VALUES (:project_id, :name, :db_type, :db_version, :stack_version, :notes, :body_json, :created_at)');
         $stmt->execute([
+            ':project_id' => $projectId,
             ':name' => trim($data['name']),
             ':db_type' => trim($data['db_type']),
             ':db_version' => trim($data['db_version'] ?? ''),
@@ -49,13 +106,27 @@ final class TemplateController
         }
 
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $projectId = (int) ($data['project_id'] ?? 0);
         if (empty($data['name']) || empty($data['db_type'])) {
             Response::json(['error' => 'Missing fields'], 422);
         }
 
         $pdo = Connection::get();
-        $stmt = $pdo->prepare('UPDATE templates SET name = :name, db_type = :db_type, db_version = :db_version, stack_version = :stack_version, notes = :notes, body_json = :body_json WHERE id = :id');
-        $stmt->execute([
+        if ($projectId > 0) {
+            $stmt = $pdo->prepare('SELECT id FROM projects WHERE id = :id');
+            $stmt->execute([':id' => $projectId]);
+            if (!$stmt->fetch()) {
+                Response::json(['error' => 'Project not found'], 404);
+            }
+            $stmt = $pdo->prepare('SELECT id FROM templates WHERE project_id = :project_id AND id <> :id');
+            $stmt->execute([':project_id' => $projectId, ':id' => $id]);
+            if ($stmt->fetch()) {
+                Response::json(['error' => 'Template already exists for project'], 409);
+            }
+        }
+
+        $stmt = $pdo->prepare('UPDATE templates SET name = :name, db_type = :db_type, db_version = :db_version, stack_version = :stack_version, notes = :notes, body_json = :body_json' . ($projectId > 0 ? ', project_id = :project_id' : '') . ' WHERE id = :id');
+        $params = [
             ':name' => trim($data['name']),
             ':db_type' => trim($data['db_type']),
             ':db_version' => trim($data['db_version'] ?? ''),
@@ -63,7 +134,11 @@ final class TemplateController
             ':notes' => trim($data['notes'] ?? ''),
             ':body_json' => json_encode($data['body'] ?? [], JSON_UNESCAPED_UNICODE),
             ':id' => $id,
-        ]);
+        ];
+        if ($projectId > 0) {
+            $params[':project_id'] = $projectId;
+        }
+        $stmt->execute($params);
 
         Response::json(['ok' => true]);
     }

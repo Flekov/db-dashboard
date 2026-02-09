@@ -33,6 +33,8 @@
           <div>
             <h2>New template</h2>
             <form id="template-form" class="stack">
+              <label>Project</label>
+              <select name="project_id" id="template-project-select" required></select>
               <input type="text" name="name" placeholder="Name" required />
               <input type="text" name="db_type" placeholder="DB type (mysql)" required />
               <input type="text" name="db_version" placeholder="DB version" />
@@ -48,7 +50,13 @@
           </div>
         </section>
         <section class="panel">
-          <h2>Templates</h2>
+          <div class="panel-header">
+            <h2>Templates</h2>
+            <form id="templates-filter-form" class="inline-form">
+              <select id="templates-filter-project"></select>
+              <button type="submit" class="btn ghost">Filter</button>
+            </form>
+          </div>
           <div id="templates-table" class="table"></div>
         </section>
       </main>

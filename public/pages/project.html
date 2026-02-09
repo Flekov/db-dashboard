@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Project - DB Dashboard</title>
+    <link rel="stylesheet" href="../assets/css/main.css" />
+  </head>
+  <body class="page-app" data-auth="required">
+    <div class="bg-noise"></div>
+    <header class="app-bar">
+      <div class="brand">
+        <div class="logo">DB</div>
+        <div>
+          <div class="title">DB Dashboard</div>
+          <div class="subtitle">project</div>
+        </div>
+      </div>
+      <div class="user-pill" id="user-pill">...</div>
+    </header>
+    <div class="app-shell">
+      <nav class="side-nav">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="projects.html">Projects</a>
+        <a href="templates.html">Templates</a>
+        <a href="servers.html">Servers</a>
+        <a href="backups.html">Backups</a>
+        <a href="admin.html">Admin</a>
+        <button id="logout-btn" class="link">Logout</button>
+      </nav>
+      <main class="content">
+        <section class="panel">
+          <div class="panel-header">
+            <h2 id="project-title">Project</h2>
+            <div class="inline-form">
+              <button type="button" class="btn danger" id="delete-project">Delete</button>
+              <button type="button" class="btn ghost" id="back-to-projects">Back</button>
+              <button type="button" class="btn" id="switch-mode">Edit</button>
+            </div>
+          </div>
+          <form id="project-form" class="stack">
+            <input type="text" name="code" placeholder="Code" required />
+            <input type="text" name="name" placeholder="Project name" required />
+            <input type="text" name="short_name" placeholder="Short name" />
+            <input type="text" name="version" placeholder="Version" />
+            <input type="text" name="type" placeholder="Type (mysql/apache/xampp)" />
+            <input type="text" name="status" placeholder="Status" />
+            <label>Owner</label>
+            <select name="owner_email" id="owner-select"></select>
+            <div class="inline-form">
+              <button type="submit" class="btn" id="save-project">Save</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Participants</h2>
+            <form id="add-participant-form" class="inline-form">
+              <select id="add-participant-select"></select>
+              <button type="submit" class="btn">Add</button>
+            </form>
+          </div>
+          <div id="participants-table" class="table"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Template</h2>
+            <div class="inline-form">
+              <button type="button" class="btn ghost" id="new-template-btn">Create</button>
+            </div>
+          </div>
+          <div id="template-table" class="table"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Servers</h2>
+            <div class="inline-form">
+              <button type="button" class="btn ghost" id="new-server-btn">Create</button>
+            </div>
+          </div>
+          <div id="servers-table" class="table"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Backups</h2>
+            <div class="inline-form">
+              <button type="button" class="btn ghost" id="new-backup-btn">Create</button>
+            </div>
+          </div>
+          <div id="backups-table" class="table"></div>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal hidden" id="confirm-modal">
+      <div class="modal-backdrop" data-confirm-close></div>
+      <div class="modal-card confirm-modal">
+        <div class="modal-header">
+          <h3>Confirm remove</h3>
+          <button class="modal-close" data-confirm-close type="button">x</button>
+        </div>
+        <p class="confirm-message" id="confirm-message">Are you sure you want to remove this participant?</p>
+        <div class="modal-actions">
+          <button type="button" class="btn ghost" id="confirm-cancel">Cancel</button>
+          <button type="button" class="btn danger" id="confirm-ok">Remove</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="item-modal">
+      <div class="modal-backdrop" data-item-close></div>
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="item-modal-title">Details</h3>
+          <button class="modal-close" data-item-close type="button">x</button>
+        </div>
+        <form id="item-modal-form" class="stack"></form>
+        <div class="modal-actions" id="item-modal-actions">
+          <button type="button" class="btn ghost" id="item-modal-cancel">Cancel</button>
+          <button type="submit" class="btn" id="item-modal-save" form="item-modal-form">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="../assets/js/api.js"></script>
+    <script src="../assets/js/app.js"></script>
+    <script src="../assets/js/project.js"></script>
+  </body>
+</html>

@@ -13,7 +13,8 @@ const userFields = [
   { name: 'id', label: 'ID', readOnly: true },
   { name: 'name', label: 'Name' },
   { name: 'email', label: 'Email' },
-  { name: 'role', label: 'Role', readOnly: true }
+  { name: 'faculty_number', label: 'Faculty number' },
+  { name: 'role', label: 'Role', type: 'select', options: ['admin', 'user'] }
 ];
 
 function escapeHtml(value) {
@@ -32,6 +33,20 @@ function renderForm(fields, item, mode) {
   modalForm.innerHTML = fields.map((field) => {
     const value = escapeHtml(item[field.name]);
     const disabled = isView || field.readOnly ? 'disabled' : '';
+    if (field.type === 'select') {
+      const options = field.options
+        .map((option) => {
+          const selected = option === item[field.name] ? 'selected' : '';
+          return `<option value="${escapeHtml(option)}" ${selected}>${escapeHtml(option)}</option>`;
+        })
+        .join('');
+      return `
+        <div class="modal-form-field">
+          <label>${field.label}</label>
+          <select name="${field.name}" ${disabled}>${options}</select>
+        </div>
+      `;
+    }
     return `
       <div class="modal-form-field">
         <label>${field.label}</label>
@@ -63,6 +78,7 @@ function openModal(mode, item) {
       });
       closeModal();
       await loadAdmin();
+      if (window.showToast) window.showToast('User saved');
     } catch (err) {
       alert(err.message);
     }
@@ -119,34 +135,47 @@ modalCancel.addEventListener('click', closeModal);
 
 async function loadAdmin() {
   try {
-    const data = await apiRequest('/auth/me');
-    const encoded = encodeURIComponent(JSON.stringify(data));
+    const me = await apiRequest('/auth/me');
+    if (me.role !== 'admin') {
+      adminPanel.innerHTML = '<div class="table-row table-empty"><div>Admin access required.</div></div>';
+      return;
+    }
+    const data = await apiRequest('/users');
     const header = `
       <div class="table-row table-header">
         <div>Name</div>
         <div>Email</div>
+        <div>Faculty</div>
         <div>Role</div>
         <div>Actions</div>
       </div>
     `;
-    const row = `
-      <div class="table-row">
-        <div>${data.name}</div>
-        <div>${data.email}</div>
-        <div>${data.role}</div>
+    const rows = data.items.map((item) => {
+      const encoded = encodeURIComponent(JSON.stringify(item));
+      return `
+        <div class="table-row">
+          <div>${escapeHtml(item.name)}</div>
+          <div>${escapeHtml(item.email)}</div>
+          <div>${escapeHtml(item.faculty_number || '-')}</div>
+          <div>${escapeHtml(item.role)}</div>
         <div class="row-actions">
-          <button class="btn ghost" data-action="view" data-row="${encoded}">View</button>
-          <button class="btn" data-action="edit" data-row="${encoded}">Edit</button>
-          <button class="btn danger ghost" data-action="delete" data-row="${encoded}">Delete</button>
+          <button class="btn ghost icon-btn" data-action="view" data-row="${encoded}" title="View" aria-label="View"><img src="${window.iconPaths?.view || ''}" alt="View" /></button>
+          <button class="btn icon-btn" data-action="edit" data-row="${encoded}" title="Edit" aria-label="Edit"><img src="${window.iconPaths?.edit || ''}" alt="Edit" /></button>
+          <button class="btn danger icon-btn" data-action="delete" data-row="${encoded}" title="Delete" aria-label="Delete"><img src="${window.iconPaths?.delete || ''}" alt="Delete" /></button>
         </div>
-      </div>
-    `;
-    adminPanel.innerHTML = header + row;
+        </div>
+      `;
+    }).join('');
+    const empty = data.items.length
+      ? ''
+      : '<div class="table-row table-empty"><div>No users found.</div></div>';
+    adminPanel.innerHTML = header + rows + empty;
   } catch (err) {
     const header = `
       <div class="table-row table-header">
         <div>Name</div>
         <div>Email</div>
+        <div>Faculty</div>
         <div>Role</div>
         <div>Actions</div>
       </div>

@@ -10,9 +10,52 @@ final class ServerController
 {
     public function list(): void
     {
-        (new AuthService())->requireUser();
+        $auth = new AuthService();
+        $current = $auth->requireUser();
         $pdo = Connection::get();
-        $stmt = $pdo->query('SELECT * FROM servers ORDER BY id DESC');
+        $projectId = (int) ($_GET['project_id'] ?? 0);
+        $projectName = trim((string) ($_GET['project'] ?? ''));
+
+        $baseJoin = ' FROM servers s JOIN projects p ON p.id = s.project_id';
+        $accessJoin = '';
+        $accessWhere = '';
+        $params = [];
+
+        if ($current['role'] !== 'admin') {
+            $accessJoin = ' LEFT JOIN project_participants pp ON pp.project_id = p.id';
+            $accessWhere = ' (p.owner_id = :user_id OR pp.user_id = :user_id)';
+            $params[':user_id'] = (int) $current['id'];
+        }
+
+        if ($projectId > 0) {
+            $where = ' s.project_id = :project_id';
+            $params[':project_id'] = $projectId;
+            if ($accessWhere) {
+                $where = $where . ' AND ' . $accessWhere;
+            }
+            $stmt = $pdo->prepare('SELECT s.*, p.name AS project_name' . $baseJoin . $accessJoin . ' WHERE ' . $where . ' ORDER BY s.id DESC');
+            $stmt->execute($params);
+            Response::json(['items' => $stmt->fetchAll()]);
+        }
+
+        if ($projectName !== '') {
+            $where = ' p.name LIKE :name';
+            $params[':name'] = '%' . $projectName . '%';
+            if ($accessWhere) {
+                $where = $where . ' AND ' . $accessWhere;
+            }
+            $stmt = $pdo->prepare('SELECT s.*, p.name AS project_name' . $baseJoin . $accessJoin . ' WHERE ' . $where . ' ORDER BY s.id DESC');
+            $stmt->execute($params);
+            Response::json(['items' => $stmt->fetchAll()]);
+        }
+
+        $query = 'SELECT s.*, p.name AS project_name' . $baseJoin . $accessJoin;
+        if ($accessWhere) {
+            $query .= ' WHERE ' . $accessWhere;
+        }
+        $query .= ' ORDER BY s.id DESC';
+        $stmt = $pdo->prepare($query);
+        $stmt->execute($params);
         Response::json(['items' => $stmt->fetchAll()]);
     }
 
@@ -21,13 +64,21 @@ final class ServerController
         (new AuthService())->requireUser();
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
 
-        if (empty($data['name']) || empty($data['host']) || empty($data['type'])) {
+        $projectId = (int) ($data['project_id'] ?? 0);
+        if ($projectId <= 0 || empty($data['name']) || empty($data['host']) || empty($data['type'])) {
             Response::json(['error' => 'Missing fields'], 422);
         }
 
         $pdo = Connection::get();
-        $stmt = $pdo->prepare('INSERT INTO servers (name, host, port, type, version, root_user, created_at) VALUES (:name, :host, :port, :type, :version, :root_user, :created_at)');
+        $stmt = $pdo->prepare('SELECT id FROM projects WHERE id = :id');
+        $stmt->execute([':id' => $projectId]);
+        if (!$stmt->fetch()) {
+            Response::json(['error' => 'Project not found'], 404);
+        }
+
+        $stmt = $pdo->prepare('INSERT INTO servers (project_id, name, host, port, type, version, root_user, created_at) VALUES (:project_id, :name, :host, :port, :type, :version, :root_user, :created_at)');
         $stmt->execute([
+            ':project_id' => $projectId,
             ':name' => trim($data['name']),
             ':host' => trim($data['host']),
             ':port' => (int) ($data['port'] ?? 3306),
@@ -49,13 +100,22 @@ final class ServerController
         }
 
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $projectId = (int) ($data['project_id'] ?? 0);
         if (empty($data['name']) || empty($data['host']) || empty($data['type'])) {
             Response::json(['error' => 'Missing fields'], 422);
         }
 
         $pdo = Connection::get();
-        $stmt = $pdo->prepare('UPDATE servers SET name = :name, host = :host, port = :port, type = :type, version = :version, root_user = :root_user WHERE id = :id');
-        $stmt->execute([
+        if ($projectId > 0) {
+            $stmt = $pdo->prepare('SELECT id FROM projects WHERE id = :id');
+            $stmt->execute([':id' => $projectId]);
+            if (!$stmt->fetch()) {
+                Response::json(['error' => 'Project not found'], 404);
+            }
+        }
+
+        $stmt = $pdo->prepare('UPDATE servers SET name = :name, host = :host, port = :port, type = :type, version = :version, root_user = :root_user' . ($projectId > 0 ? ', project_id = :project_id' : '') . ' WHERE id = :id');
+        $params = [
             ':name' => trim($data['name']),
             ':host' => trim($data['host']),
             ':port' => (int) ($data['port'] ?? 3306),
@@ -63,7 +123,11 @@ final class ServerController
             ':version' => trim($data['version'] ?? ''),
             ':root_user' => trim($data['root_user'] ?? ''),
             ':id' => $id,
-        ]);
+        ];
+        if ($projectId > 0) {
+            $params[':project_id'] = $projectId;
+        }
+        $stmt->execute($params);
 
         Response::json(['ok' => true]);
     }

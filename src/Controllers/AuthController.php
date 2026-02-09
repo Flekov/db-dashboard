@@ -42,6 +42,7 @@ final class AuthController
             'id' => (int) $user['id'],
             'name' => $user['name'],
             'email' => $user['email'],
+            'faculty_number' => $user['faculty_number'] ?? null,
             'role' => $user['role'],
         ]);
     }

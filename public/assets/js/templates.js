@@ -9,8 +9,15 @@ const confirmMessage = document.getElementById('confirm-message');
 const confirmOk = document.getElementById('confirm-ok');
 const confirmCancel = document.getElementById('confirm-cancel');
 
+const filterForm = document.getElementById('templates-filter-form');
+const filterProjectSelect = document.getElementById('templates-filter-project');
+const templateProjectSelect = document.getElementById('template-project-select');
+
+let projects = [];
+
 const templateFields = [
   { name: 'id', label: 'ID', readOnly: true },
+  { name: 'project_id', label: 'Project', type: 'select' },
   { name: 'name', label: 'Name' },
   { name: 'db_type', label: 'DB type' },
   { name: 'db_version', label: 'DB version' },
@@ -36,6 +43,18 @@ function renderForm(fields, item, mode) {
   modalForm.innerHTML = fields.map((field) => {
     const value = escapeHtml(item[field.name]);
     const disabled = isView || field.readOnly ? 'disabled' : '';
+    if (field.type === 'select') {
+      const options = projects.map((project) => {
+        const selected = String(project.id) === String(item[field.name]) ? 'selected' : '';
+        return `<option value="${project.id}" ${selected}>${escapeHtml(project.name)}</option>`;
+      }).join('');
+      return `
+        <div class="modal-form-field">
+          <label>${field.label}</label>
+          <select name="${field.name}" ${disabled}>${options}</select>
+        </div>
+      `;
+    }
     if (field.type === 'textarea') {
       return `
         <div class="modal-form-field">
@@ -79,6 +98,7 @@ function openModal(mode, item) {
     }
 
     const updatePayload = {
+      project_id: Number(payload.project_id) || null,
       name: payload.name,
       db_type: payload.db_type,
       db_version: payload.db_version,
@@ -93,7 +113,9 @@ function openModal(mode, item) {
         body: JSON.stringify(updatePayload),
       });
       closeModal();
-      await loadTemplates();
+      const projectId = filterProjectSelect && filterProjectSelect.value ? Number(filterProjectSelect.value) : null;
+      await loadTemplates(projectId);
+      if (window.showToast) window.showToast('Template saved');
     } catch (err) {
       alert(err.message);
     }
@@ -148,11 +170,13 @@ modal.addEventListener('click', (event) => {
 
 modalCancel.addEventListener('click', closeModal);
 
-async function loadTemplates() {
-  const data = await apiRequest('/templates');
+async function loadTemplates(projectId = null) {
+  const query = projectId ? `?project_id=${projectId}` : '';
+  const data = await apiRequest(`/templates${query}`);
   const header = `
     <div class="table-row table-header">
       <div>ID</div>
+      <div>Project</div>
       <div>Name</div>
       <div>DB type</div>
       <div>DB version</div>
@@ -164,13 +188,14 @@ async function loadTemplates() {
     return `
       <div class="table-row">
         <div>${item.id}</div>
+        <div>${escapeHtml(item.project_name || '-')}</div>
         <div>${item.name}</div>
         <div>${item.db_type}</div>
         <div>${item.db_version || '-'}</div>
         <div class="row-actions">
-          <button class="btn ghost" data-action="view" data-row="${encoded}">View</button>
-          <button class="btn" data-action="edit" data-row="${encoded}">Edit</button>
-          <button class="btn danger ghost" data-action="delete" data-row="${encoded}">Delete</button>
+          <button class="btn ghost icon-btn" data-action="view" data-row="${encoded}" title="View" aria-label="View"><img src="${window.iconPaths?.view || ''}" alt="View" /></button>
+          <button class="btn icon-btn" data-action="edit" data-row="${encoded}" title="Edit" aria-label="Edit"><img src="${window.iconPaths?.edit || ''}" alt="Edit" /></button>
+          <button class="btn danger icon-btn" data-action="delete" data-row="${encoded}" title="Delete" aria-label="Delete"><img src="${window.iconPaths?.delete || ''}" alt="Delete" /></button>
         </div>
       </div>
     `;
@@ -179,6 +204,14 @@ async function loadTemplates() {
     ? ''
     : '<div class="table-row table-empty"><div>No templates found.</div></div>';
   templatesTable.innerHTML = header + rows + empty;
+
+  if (!openedFromProject && Number.isFinite(initialItemId)) {
+    const item = data.items.find((row) => Number(row.id) === initialItemId);
+    if (item) {
+      openModal(initialMode === 'edit' ? 'edit' : 'view', item);
+      openedFromProject = true;
+    }
+  }
 }
 
 templatesTable.addEventListener('click', async (event) => {
@@ -191,7 +224,8 @@ templatesTable.addEventListener('click', async (event) => {
     if (!ok) return;
     try {
       await apiRequest(`/templates/${item.id}`, { method: 'DELETE' });
-      await loadTemplates();
+      const projectId = filterProjectSelect && filterProjectSelect.value ? Number(filterProjectSelect.value) : null;
+      await loadTemplates(projectId);
     } catch (err) {
       alert(err.message);
     }
@@ -201,7 +235,39 @@ templatesTable.addEventListener('click', async (event) => {
   openModal(button.dataset.action, item);
 });
 
-loadTemplates();
+async function loadProjects() {
+  const data = await apiRequest('/projects');
+  projects = data.items || [];
+  const filterOptions = ['<option value="">All projects</option>']
+    .concat(projects.map((project) => `<option value="${project.id}">${escapeHtml(project.name)}</option>`))
+    .join('');
+  if (filterProjectSelect) {
+    filterProjectSelect.innerHTML = filterOptions;
+  }
+  if (templateProjectSelect) {
+    templateProjectSelect.innerHTML = projects.map((project) => `<option value="${project.id}">${escapeHtml(project.name)}</option>`).join('');
+  }
+}
+
+const params = new URLSearchParams(window.location.search);
+const initialProjectId = Number.parseInt(params.get('project_id') || '', 10);
+const initialItemId = Number.parseInt(params.get('id') || '', 10);
+const initialMode = params.get('mode') || 'view';
+let openedFromProject = false;
+
+loadProjects().then(() => {
+  if (Number.isFinite(initialProjectId)) {
+    if (templateProjectSelect) {
+      templateProjectSelect.value = String(initialProjectId);
+    }
+    if (filterProjectSelect) {
+      filterProjectSelect.value = String(initialProjectId);
+    }
+    loadTemplates(initialProjectId);
+    return;
+  }
+  loadTemplates();
+});
 
 const templateForm = document.getElementById('template-form');
 templateForm.addEventListener('submit', async (event) => {
@@ -219,6 +285,7 @@ templateForm.addEventListener('submit', async (event) => {
   }
 
   const payload = {
+    project_id: Number(form.project_id.value) || null,
     name: form.name.value.trim(),
     db_type: form.db_type.value.trim(),
     db_version: form.db_version.value.trim(),
@@ -234,8 +301,21 @@ templateForm.addEventListener('submit', async (event) => {
     });
     form.reset();
     document.getElementById('template-body').value = '';
-    await loadTemplates();
+    if (templateProjectSelect && templateProjectSelect.value) {
+      await loadTemplates(Number(templateProjectSelect.value) || null);
+    } else {
+      await loadTemplates();
+    }
+    if (window.showToast) window.showToast('Template saved');
   } catch (err) {
     alert(err.message);
   }
 });
+
+if (filterForm) {
+  filterForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const projectId = Number(filterProjectSelect.value) || null;
+    await loadTemplates(projectId);
+  });
+}

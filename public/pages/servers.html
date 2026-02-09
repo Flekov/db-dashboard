@@ -33,6 +33,8 @@
           <div>
             <h2>New DB server</h2>
             <form id="server-form" class="stack">
+              <label>Project</label>
+              <select name="project_id" id="server-project-select" required></select>
               <input type="text" name="name" placeholder="Name" required />
               <input type="text" name="host" placeholder="Host" required />
               <input type="number" name="port" placeholder="Port" value="3306" />
@@ -48,7 +50,13 @@
           </div>
         </section>
         <section class="panel">
-          <h2>Servers</h2>
+          <div class="panel-header">
+            <h2>Servers</h2>
+            <form id="servers-filter-form" class="inline-form">
+              <select id="servers-filter-project"></select>
+              <button type="submit" class="btn ghost">Filter</button>
+            </form>
+          </div>
           <div id="servers-table" class="table"></div>
         </section>
       </main>

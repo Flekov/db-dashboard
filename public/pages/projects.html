@@ -43,8 +43,8 @@
           </div>
           <div>
             <h2>Bulk import</h2>
-            <p class="muted">Accepts a JSON array of objects: code, name, short_name, version, type, participants.</p>
-            <textarea id="bulk-input" rows="8" placeholder='[{"code":"7777","name":"MyWeb","short_name":"myweb","version":"v2","type":"mysql","participants":["7777","8888"]}]'></textarea>
+            <p class="muted">Accepts a JSON array of objects: code, name, short_name, version, type, owner_email, participants (emails).</p>
+            <textarea id="bulk-input" rows="8" placeholder='[{"code":"7777","name":"MyWeb","short_name":"myweb","version":"v2","type":"mysql","owner_email":"admin@example.com","participants":["demo@example.com"]}]'></textarea>
             <button id="bulk-import" class="btn ghost">Import</button>
           </div>
         </section>

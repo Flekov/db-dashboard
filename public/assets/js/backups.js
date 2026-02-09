@@ -11,6 +11,10 @@ const confirmCancel = document.getElementById('confirm-cancel');
 
 const filterForm = document.getElementById('backups-filter-form');
 const filterProjectInput = document.getElementById('backups-filter-project');
+const backupProjectSelect = document.getElementById('backup-project-select');
+
+let projects = [];
+let projectNameById = {};
 
 const backupFields = [
   { name: 'id', label: 'ID', readOnly: true },
@@ -68,6 +72,7 @@ function openModal(mode, item) {
       });
       closeModal();
       await loadBackups();
+      if (window.showToast) window.showToast('Backup saved');
     } catch (err) {
       alert(err.message);
     }
@@ -122,43 +127,40 @@ modal.addEventListener('click', (event) => {
 
 modalCancel.addEventListener('click', closeModal);
 
-let currentProjectId = 1;
-
-function normalizeProjectId(value) {
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-}
+let currentProjectId = null;
 
 async function loadBackups(projectId = currentProjectId) {
   const header = `
     <div class="table-row table-header">
       <div>ID</div>
-      <div>Project ID</div>
+      <div>Project</div>
       <div>Type</div>
       <div>Version</div>
       <div>Location</div>
       <div>Actions</div>
     </div>
   `;
-  if (!Number.isFinite(projectId) || projectId <= 0) {
-    backupsTable.innerHTML = header + '<div class="table-row table-empty"><div>Enter a project id to load backups.</div></div>';
-    return;
+  let data = null;
+  if (Number.isFinite(projectId) && projectId > 0) {
+    currentProjectId = projectId;
+    data = await apiRequest(`/backups?project_id=${projectId}`).catch(() => ({ items: [] }));
+  } else {
+    currentProjectId = null;
+    data = await apiRequest('/backups').catch(() => ({ items: [] }));
   }
-  currentProjectId = projectId;
-  const data = await apiRequest(`/projects/${projectId}/backups`).catch(() => ({ items: [] }));
   const rows = data.items.map((item) => {
     const encoded = encodeURIComponent(JSON.stringify(item));
     return `
       <div class="table-row">
         <div>${item.id}</div>
-        <div>${item.project_id}</div>
+        <div>${escapeHtml(item.project_name || projectNameById[item.project_id] || '-')}</div>
         <div>${item.backup_type}</div>
         <div>${item.version_label || '-'}</div>
         <div>${item.location || '-'}</div>
         <div class="row-actions">
-          <button class="btn ghost" data-action="view" data-row="${encoded}">View</button>
-          <button class="btn" data-action="edit" data-row="${encoded}">Edit</button>
-          <button class="btn danger ghost" data-action="delete" data-row="${encoded}">Delete</button>
+          <button class="btn ghost icon-btn" data-action="view" data-row="${encoded}" title="View" aria-label="View"><img src="${window.iconPaths?.view || ''}" alt="View" /></button>
+          <button class="btn icon-btn" data-action="edit" data-row="${encoded}" title="Edit" aria-label="Edit"><img src="${window.iconPaths?.edit || ''}" alt="Edit" /></button>
+          <button class="btn danger icon-btn" data-action="delete" data-row="${encoded}" title="Delete" aria-label="Delete"><img src="${window.iconPaths?.delete || ''}" alt="Delete" /></button>
         </div>
       </div>
     `;
@@ -167,6 +169,14 @@ async function loadBackups(projectId = currentProjectId) {
     ? ''
     : '<div class="table-row table-empty"><div>No backups found.</div></div>';
   backupsTable.innerHTML = header + rows + empty;
+
+  if (!openedFromProject && Number.isFinite(initialItemId)) {
+    const item = data.items.find((row) => Number(row.id) === initialItemId);
+    if (item) {
+      openModal(initialMode === 'edit' ? 'edit' : 'view', item);
+      openedFromProject = true;
+    }
+  }
 }
 
 backupsTable.addEventListener('click', async (event) => {
@@ -179,7 +189,8 @@ backupsTable.addEventListener('click', async (event) => {
     if (!ok) return;
     try {
       await apiRequest(`/projects/${item.project_id}/backups/${item.id}`, { method: 'DELETE' });
-      await loadBackups();
+      const projectId = filterProjectInput && filterProjectInput.value ? Number(filterProjectInput.value) : null;
+      await loadBackups(projectId);
     } catch (err) {
       alert(err.message);
     }
@@ -189,23 +200,49 @@ backupsTable.addEventListener('click', async (event) => {
   openModal(button.dataset.action, item);
 });
 
-if (filterProjectInput) {
-  const initialProjectId = normalizeProjectId(filterProjectInput.value) ?? currentProjectId;
-  currentProjectId = initialProjectId;
-  filterProjectInput.value = currentProjectId;
+async function loadProjects() {
+  const data = await apiRequest('/projects');
+  projects = data.items || [];
+  projectNameById = projects.reduce((acc, project) => {
+    acc[project.id] = project.name;
+    return acc;
+  }, {});
+  const filterOptions = ['<option value="">All projects</option>']
+    .concat(projects.map((project) => `<option value="${project.id}">${escapeHtml(project.name)}</option>`))
+    .join('');
+  if (filterProjectInput) {
+    filterProjectInput.innerHTML = filterOptions;
+  }
+  if (backupProjectSelect) {
+    backupProjectSelect.innerHTML = projects.map((project) => `<option value="${project.id}">${escapeHtml(project.name)}</option>`).join('');
+  }
 }
 
-loadBackups(currentProjectId);
+const params = new URLSearchParams(window.location.search);
+const initialProjectId = Number.parseInt(params.get('project_id') || '', 10);
+const initialItemId = Number.parseInt(params.get('id') || '', 10);
+const initialMode = params.get('mode') || 'view';
+let openedFromProject = false;
+
+loadProjects().then(() => {
+  if (Number.isFinite(initialProjectId)) {
+    if (filterProjectInput) {
+      filterProjectInput.value = String(initialProjectId);
+    }
+    if (backupProjectSelect) {
+      backupProjectSelect.value = String(initialProjectId);
+    }
+    loadBackups(initialProjectId);
+    return;
+  }
+  loadBackups();
+});
 
 if (filterForm) {
   filterForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const nextProjectId = normalizeProjectId(filterProjectInput.value);
-    if (!nextProjectId) {
-      alert('Enter a valid project id to filter backups.');
-      return;
-    }
-    await loadBackups(nextProjectId);
+    const projectId = Number(filterProjectInput.value) || null;
+    await loadBackups(projectId);
   });
 }
 
@@ -213,9 +250,9 @@ const backupForm = document.getElementById('backup-form');
 backupForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = event.target;
-  const projectId = normalizeProjectId(form.project_id.value);
+  const projectId = Number(form.project_id.value) || null;
   if (!projectId) {
-    alert('Enter a valid project id for the backup.');
+    alert('Select a project for the backup.');
     return;
   }
 
@@ -232,9 +269,10 @@ backupForm.addEventListener('submit', async (event) => {
     });
     form.reset();
     if (filterProjectInput) {
-      filterProjectInput.value = projectId;
+      filterProjectInput.value = String(projectId);
     }
     await loadBackups(projectId);
+    if (window.showToast) window.showToast('Backup saved');
   } catch (err) {
     alert(err.message);
   }

@@ -9,8 +9,15 @@ const confirmMessage = document.getElementById('confirm-message');
 const confirmOk = document.getElementById('confirm-ok');
 const confirmCancel = document.getElementById('confirm-cancel');
 
+const filterForm = document.getElementById('servers-filter-form');
+const filterProjectSelect = document.getElementById('servers-filter-project');
+const serverProjectSelect = document.getElementById('server-project-select');
+
+let projects = [];
+
 const serverFields = [
   { name: 'id', label: 'ID', readOnly: true },
+  { name: 'project_id', label: 'Project', type: 'select' },
   { name: 'name', label: 'Name' },
   { name: 'host', label: 'Host' },
   { name: 'port', label: 'Port' },
@@ -36,6 +43,18 @@ function renderForm(fields, item, mode) {
   modalForm.innerHTML = fields.map((field) => {
     const value = escapeHtml(item[field.name]);
     const disabled = isView || field.readOnly ? 'disabled' : '';
+    if (field.type === 'select') {
+      const options = projects.map((project) => {
+        const selected = String(project.id) === String(item[field.name]) ? 'selected' : '';
+        return `<option value="${project.id}" ${selected}>${escapeHtml(project.name)}</option>`;
+      }).join('');
+      return `
+        <div class="modal-form-field">
+          <label>${field.label}</label>
+          <select name="${field.name}" ${disabled}>${options}</select>
+        </div>
+      `;
+    }
     return `
       <div class="modal-form-field">
         <label>${field.label}</label>
@@ -58,6 +77,10 @@ function openModal(mode, item) {
     serverFields.forEach((field) => {
       if (field.readOnly) return;
       const value = modalForm.elements[field.name].value.trim();
+      if (field.name === 'project_id') {
+        payload[field.name] = Number(value) || null;
+        return;
+      }
       payload[field.name] = field.name === 'port' ? Number(value) || 3306 : value;
     });
 
@@ -67,7 +90,9 @@ function openModal(mode, item) {
         body: JSON.stringify(payload),
       });
       closeModal();
-      await loadServers();
+      const projectId = filterProjectSelect && filterProjectSelect.value ? Number(filterProjectSelect.value) : null;
+      await loadServers(projectId);
+      if (window.showToast) window.showToast('Server saved');
     } catch (err) {
       alert(err.message);
     }
@@ -122,11 +147,13 @@ modal.addEventListener('click', (event) => {
 
 modalCancel.addEventListener('click', closeModal);
 
-async function loadServers() {
-  const data = await apiRequest('/servers');
+async function loadServers(projectId = null) {
+  const query = projectId ? `?project_id=${projectId}` : '';
+  const data = await apiRequest(`/servers${query}`);
   const header = `
     <div class="table-row table-header">
       <div>ID</div>
+      <div>Project</div>
       <div>Name</div>
       <div>Host</div>
       <div>Type</div>
@@ -139,14 +166,15 @@ async function loadServers() {
     return `
       <div class="table-row">
         <div>${item.id}</div>
+        <div>${escapeHtml(item.project_name || '-')}</div>
         <div>${item.name}</div>
         <div>${item.host}:${item.port}</div>
         <div>${item.type}</div>
         <div>${item.version || '-'}</div>
         <div class="row-actions">
-          <button class="btn ghost" data-action="view" data-row="${encoded}">View</button>
-          <button class="btn" data-action="edit" data-row="${encoded}">Edit</button>
-          <button class="btn danger ghost" data-action="delete" data-row="${encoded}">Delete</button>
+          <button class="btn ghost icon-btn" data-action="view" data-row="${encoded}" title="View" aria-label="View"><img src="${window.iconPaths?.view || ''}" alt="View" /></button>
+          <button class="btn icon-btn" data-action="edit" data-row="${encoded}" title="Edit" aria-label="Edit"><img src="${window.iconPaths?.edit || ''}" alt="Edit" /></button>
+          <button class="btn danger icon-btn" data-action="delete" data-row="${encoded}" title="Delete" aria-label="Delete"><img src="${window.iconPaths?.delete || ''}" alt="Delete" /></button>
         </div>
       </div>
     `;
@@ -155,6 +183,14 @@ async function loadServers() {
     ? ''
     : '<div class="table-row table-empty"><div>No servers found.</div></div>';
   serversTable.innerHTML = header + rows + empty;
+
+  if (!openedFromProject && Number.isFinite(initialItemId)) {
+    const item = data.items.find((row) => Number(row.id) === initialItemId);
+    if (item) {
+      openModal(initialMode === 'edit' ? 'edit' : 'view', item);
+      openedFromProject = true;
+    }
+  }
 }
 
 serversTable.addEventListener('click', async (event) => {
@@ -167,7 +203,8 @@ serversTable.addEventListener('click', async (event) => {
     if (!ok) return;
     try {
       await apiRequest(`/servers/${item.id}`, { method: 'DELETE' });
-      await loadServers();
+      const projectId = filterProjectSelect && filterProjectSelect.value ? Number(filterProjectSelect.value) : null;
+      await loadServers(projectId);
     } catch (err) {
       alert(err.message);
     }
@@ -177,13 +214,46 @@ serversTable.addEventListener('click', async (event) => {
   openModal(button.dataset.action, item);
 });
 
-loadServers();
+async function loadProjects() {
+  const data = await apiRequest('/projects');
+  projects = data.items || [];
+  const filterOptions = ['<option value="">All projects</option>']
+    .concat(projects.map((project) => `<option value="${project.id}">${escapeHtml(project.name)}</option>`))
+    .join('');
+  if (filterProjectSelect) {
+    filterProjectSelect.innerHTML = filterOptions;
+  }
+  if (serverProjectSelect) {
+    serverProjectSelect.innerHTML = projects.map((project) => `<option value="${project.id}">${escapeHtml(project.name)}</option>`).join('');
+  }
+}
+
+const params = new URLSearchParams(window.location.search);
+const initialProjectId = Number.parseInt(params.get('project_id') || '', 10);
+const initialItemId = Number.parseInt(params.get('id') || '', 10);
+const initialMode = params.get('mode') || 'view';
+let openedFromProject = false;
+
+loadProjects().then(() => {
+  if (Number.isFinite(initialProjectId)) {
+    if (serverProjectSelect) {
+      serverProjectSelect.value = String(initialProjectId);
+    }
+    if (filterProjectSelect) {
+      filterProjectSelect.value = String(initialProjectId);
+    }
+    loadServers(initialProjectId);
+    return;
+  }
+  loadServers();
+});
 
 const serverForm = document.getElementById('server-form');
 serverForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = event.target;
   const payload = {
+    project_id: Number(form.project_id.value) || null,
     name: form.name.value.trim(),
     host: form.host.value.trim(),
     port: Number(form.port.value) || 3306,
@@ -198,8 +268,21 @@ serverForm.addEventListener('submit', async (event) => {
       body: JSON.stringify(payload),
     });
     form.reset();
-    await loadServers();
+    if (serverProjectSelect && serverProjectSelect.value) {
+      await loadServers(Number(serverProjectSelect.value) || null);
+    } else {
+      await loadServers();
+    }
+    if (window.showToast) window.showToast('Server saved');
   } catch (err) {
     alert(err.message);
   }
 });
+
+if (filterForm) {
+  filterForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const projectId = Number(filterProjectSelect.value) || null;
+    await loadServers(projectId);
+  });
+}
