@@ -1,4 +1,5 @@
 const backupsTable = document.getElementById('backups-table');
+const exportBackupsBtn = document.getElementById('export-backups');
 const modal = document.getElementById('modal');
 const modalTitle = document.getElementById('modal-title');
 const modalForm = document.getElementById('modal-form');
@@ -15,6 +16,7 @@ const backupProjectSelect = document.getElementById('backup-project-select');
 
 let projects = [];
 let projectNameById = {};
+let backupItems = [];
 
 const backupFields = [
   { name: 'id', label: 'ID', readOnly: true },
@@ -148,6 +150,10 @@ async function loadBackups(projectId = currentProjectId) {
     currentProjectId = null;
     data = await apiRequest('/backups').catch(() => ({ items: [] }));
   }
+  backupItems = data.items || [];
+  if (exportBackupsBtn) {
+    exportBackupsBtn.classList.toggle('hidden', backupItems.length === 0);
+  }
   const rows = data.items.map((item) => {
     const encoded = encodeURIComponent(JSON.stringify(item));
     return `
@@ -177,6 +183,21 @@ async function loadBackups(projectId = currentProjectId) {
       openedFromProject = true;
     }
   }
+}
+
+if (exportBackupsBtn) {
+  exportBackupsBtn.addEventListener('click', () => {
+    if (!window.exportToCsv) return;
+    window.exportToCsv('backups', [
+      { key: 'id', label: 'ID' },
+      { key: 'project_id', label: 'Project ID' },
+      { label: 'Project', get: (row) => row.project_name || projectNameById[row.project_id] || '' },
+      { key: 'backup_type', label: 'Type' },
+      { key: 'version_label', label: 'Version' },
+      { key: 'location', label: 'Location' },
+      { key: 'created_at', label: 'Created at' },
+    ], backupItems);
+  });
 }
 
 backupsTable.addEventListener('click', async (event) => {

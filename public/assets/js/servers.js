@@ -1,4 +1,5 @@
 const serversTable = document.getElementById('servers-table');
+const exportServersBtn = document.getElementById('export-servers');
 const modal = document.getElementById('modal');
 const modalTitle = document.getElementById('modal-title');
 const modalForm = document.getElementById('modal-form');
@@ -14,6 +15,7 @@ const filterProjectSelect = document.getElementById('servers-filter-project');
 const serverProjectSelect = document.getElementById('server-project-select');
 
 let projects = [];
+let serverItems = [];
 
 const serverFields = [
   { name: 'id', label: 'ID', readOnly: true },
@@ -150,6 +152,10 @@ modalCancel.addEventListener('click', closeModal);
 async function loadServers(projectId = null) {
   const query = projectId ? `?project_id=${projectId}` : '';
   const data = await apiRequest(`/servers${query}`);
+  serverItems = data.items || [];
+  if (exportServersBtn) {
+    exportServersBtn.classList.toggle('hidden', serverItems.length === 0);
+  }
   const header = `
     <div class="table-row table-header">
       <div>ID</div>
@@ -191,6 +197,24 @@ async function loadServers(projectId = null) {
       openedFromProject = true;
     }
   }
+}
+
+if (exportServersBtn) {
+  exportServersBtn.addEventListener('click', () => {
+    if (!window.exportToCsv) return;
+    window.exportToCsv('servers', [
+      { key: 'id', label: 'ID' },
+      { key: 'project_id', label: 'Project ID' },
+      { key: 'project_name', label: 'Project' },
+      { key: 'name', label: 'Name' },
+      { key: 'host', label: 'Host' },
+      { key: 'port', label: 'Port' },
+      { key: 'type', label: 'Type' },
+      { key: 'version', label: 'Version' },
+      { key: 'root_user', label: 'Root user' },
+      { key: 'created_at', label: 'Created at' },
+    ], serverItems);
+  });
 }
 
 serversTable.addEventListener('click', async (event) => {

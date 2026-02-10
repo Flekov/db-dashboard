@@ -1,4 +1,5 @@
 const adminPanel = document.getElementById('admin-panel');
+const exportUsersBtn = document.getElementById('export-users');
 const modal = document.getElementById('modal');
 const modalTitle = document.getElementById('modal-title');
 const modalForm = document.getElementById('modal-form');
@@ -16,6 +17,8 @@ const userFields = [
   { name: 'faculty_number', label: 'Faculty number' },
   { name: 'role', label: 'Role', type: 'select', options: ['admin', 'user'] }
 ];
+
+let userItems = [];
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -141,6 +144,10 @@ async function loadAdmin() {
       return;
     }
     const data = await apiRequest('/users');
+    userItems = data.items || [];
+    if (exportUsersBtn) {
+      exportUsersBtn.classList.toggle('hidden', userItems.length === 0);
+    }
     const header = `
       <div class="table-row table-header">
         <div>Name</div>
@@ -181,7 +188,24 @@ async function loadAdmin() {
       </div>
     `;
     adminPanel.innerHTML = header + '<div class="table-row table-empty"><div>No data</div></div>';
+    userItems = [];
+    if (exportUsersBtn) {
+      exportUsersBtn.classList.add('hidden');
+    }
   }
+}
+
+if (exportUsersBtn) {
+  exportUsersBtn.addEventListener('click', () => {
+    if (!window.exportToCsv) return;
+    window.exportToCsv('users', [
+      { key: 'id', label: 'ID' },
+      { key: 'name', label: 'Name' },
+      { key: 'email', label: 'Email' },
+      { key: 'faculty_number', label: 'Faculty number' },
+      { key: 'role', label: 'Role' },
+    ], userItems);
+  });
 }
 
 adminPanel.addEventListener('click', async (event) => {

@@ -370,6 +370,13 @@ select[multiple] {
   margin: 0;
 }
 
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
 .inline-form {
   display: flex;
   align-items: center;

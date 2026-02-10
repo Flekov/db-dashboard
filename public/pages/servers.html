@@ -52,10 +52,13 @@
         <section class="panel">
           <div class="panel-header">
             <h2>Servers</h2>
-            <form id="servers-filter-form" class="inline-form">
-              <select id="servers-filter-project"></select>
-              <button type="submit" class="btn ghost">Filter</button>
-            </form>
+            <div class="panel-actions">
+              <form id="servers-filter-form" class="inline-form">
+                <select id="servers-filter-project"></select>
+                <button type="submit" class="btn ghost">Filter</button>
+              </form>
+              <button id="export-servers" class="btn ghost" type="button">Export to Excel</button>
+            </div>
           </div>
           <div id="servers-table" class="table"></div>
         </section>

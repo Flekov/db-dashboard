@@ -49,10 +49,13 @@
         <section class="panel">
           <div class="panel-header">
             <h2>Backups</h2>
-            <form id="backups-filter-form" class="inline-form">
-              <select id="backups-filter-project"></select>
-              <button type="submit" class="btn ghost">Filter</button>
-            </form>
+            <div class="panel-actions">
+              <form id="backups-filter-form" class="inline-form">
+                <select id="backups-filter-project"></select>
+                <button type="submit" class="btn ghost">Filter</button>
+              </form>
+              <button id="export-backups" class="btn ghost" type="button">Export to Excel</button>
+            </div>
           </div>
           <div id="backups-table" class="table"></div>
         </section>

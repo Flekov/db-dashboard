@@ -1,4 +1,5 @@
 const templatesTable = document.getElementById('templates-table');
+const exportTemplatesBtn = document.getElementById('export-templates');
 const modal = document.getElementById('modal');
 const modalTitle = document.getElementById('modal-title');
 const modalForm = document.getElementById('modal-form');
@@ -14,6 +15,7 @@ const filterProjectSelect = document.getElementById('templates-filter-project');
 const templateProjectSelect = document.getElementById('template-project-select');
 
 let projects = [];
+let templateItems = [];
 
 const templateFields = [
   { name: 'id', label: 'ID', readOnly: true },
@@ -173,6 +175,10 @@ modalCancel.addEventListener('click', closeModal);
 async function loadTemplates(projectId = null) {
   const query = projectId ? `?project_id=${projectId}` : '';
   const data = await apiRequest(`/templates${query}`);
+  templateItems = data.items || [];
+  if (exportTemplatesBtn) {
+    exportTemplatesBtn.classList.toggle('hidden', templateItems.length === 0);
+  }
   const header = `
     <div class="table-row table-header">
       <div>ID</div>
@@ -212,6 +218,24 @@ async function loadTemplates(projectId = null) {
       openedFromProject = true;
     }
   }
+}
+
+if (exportTemplatesBtn) {
+  exportTemplatesBtn.addEventListener('click', () => {
+    if (!window.exportToCsv) return;
+    window.exportToCsv('templates', [
+      { key: 'id', label: 'ID' },
+      { key: 'project_id', label: 'Project ID' },
+      { key: 'project_name', label: 'Project' },
+      { key: 'name', label: 'Name' },
+      { key: 'db_type', label: 'DB type' },
+      { key: 'db_version', label: 'DB version' },
+      { key: 'stack_version', label: 'Stack version' },
+      { key: 'notes', label: 'Notes' },
+      { key: 'body_json', label: 'Body JSON' },
+      { key: 'created_at', label: 'Created at' },
+    ], templateItems);
+  });
 }
 
 templatesTable.addEventListener('click', async (event) => {

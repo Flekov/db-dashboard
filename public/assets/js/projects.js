@@ -1,6 +1,12 @@
 const projectsTable = document.getElementById('projects-table');
+const exportProjectsBtn = document.getElementById('export-projects');
+let projectItems = [];
 async function loadProjects() {
   const data = await apiRequest('/projects');
+  projectItems = data.items || [];
+  if (exportProjectsBtn) {
+    exportProjectsBtn.classList.toggle('hidden', projectItems.length === 0);
+  }
   const header = `
     <div class="table-row table-header">
       <div>ID</div>
@@ -32,6 +38,25 @@ async function loadProjects() {
     ? ''
     : '<div class="table-row table-empty"><div>No projects found.</div></div>';
   projectsTable.innerHTML = header + rows + empty;
+}
+
+if (exportProjectsBtn) {
+  exportProjectsBtn.addEventListener('click', () => {
+    if (!window.exportToCsv) return;
+    window.exportToCsv('projects', [
+      { key: 'id', label: 'ID' },
+      { key: 'code', label: 'Code' },
+      { key: 'name', label: 'Name' },
+      { key: 'short_name', label: 'Short name' },
+      { key: 'version', label: 'Version' },
+      { key: 'type', label: 'Type' },
+      { key: 'status', label: 'Status' },
+      { key: 'owner_name', label: 'Owner name' },
+      { key: 'owner_faculty_number', label: 'Owner faculty number' },
+      { key: 'created_at', label: 'Created at' },
+      { label: 'Participants', get: (row) => (row.participants_labels || []).join(', ') },
+    ], projectItems);
+  });
 }
 
 projectsTable.addEventListener('click', async (event) => {

@@ -52,10 +52,13 @@
         <section class="panel">
           <div class="panel-header">
             <h2>Templates</h2>
-            <form id="templates-filter-form" class="inline-form">
-              <select id="templates-filter-project"></select>
-              <button type="submit" class="btn ghost">Filter</button>
-            </form>
+            <div class="panel-actions">
+              <form id="templates-filter-form" class="inline-form">
+                <select id="templates-filter-project"></select>
+                <button type="submit" class="btn ghost">Filter</button>
+              </form>
+              <button id="export-templates" class="btn ghost" type="button">Export to Excel</button>
+            </div>
           </div>
           <div id="templates-table" class="table"></div>
         </section>

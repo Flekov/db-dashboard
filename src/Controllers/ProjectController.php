@@ -14,9 +14,9 @@ final class ProjectController
         $current = $auth->requireUser();
         $pdo = Connection::get();
         if ($current['role'] === 'admin') {
-            $stmt = $pdo->query('SELECT p.*, u.name AS owner_name, u.email AS owner_email FROM projects p JOIN users u ON u.id = p.owner_id ORDER BY p.id DESC');
+            $stmt = $pdo->query('SELECT p.*, u.name AS owner_name, u.email AS owner_email, u.faculty_number AS owner_faculty_number FROM projects p JOIN users u ON u.id = p.owner_id ORDER BY p.id DESC');
         } else {
-            $stmt = $pdo->prepare('SELECT DISTINCT p.*, u.name AS owner_name, u.email AS owner_email FROM projects p JOIN users u ON u.id = p.owner_id LEFT JOIN project_participants pp ON pp.project_id = p.id WHERE p.owner_id = :user_id OR pp.user_id = :user_id ORDER BY p.id DESC');
+            $stmt = $pdo->prepare('SELECT DISTINCT p.*, u.name AS owner_name, u.email AS owner_email, u.faculty_number AS owner_faculty_number FROM projects p JOIN users u ON u.id = p.owner_id LEFT JOIN project_participants pp ON pp.project_id = p.id WHERE p.owner_id = :user_id OR pp.user_id = :user_id ORDER BY p.id DESC');
             $stmt->execute([':user_id' => (int) $current['id']]);
         }
         $items = $stmt->fetchAll();
@@ -34,7 +34,7 @@ final class ProjectController
             Response::json(['error' => 'Invalid project id'], 422);
         }
 
-        $stmt = $pdo->prepare('SELECT p.*, u.name AS owner_name, u.email AS owner_email FROM projects p JOIN users u ON u.id = p.owner_id WHERE p.id = :id');
+        $stmt = $pdo->prepare('SELECT p.*, u.name AS owner_name, u.email AS owner_email, u.faculty_number AS owner_faculty_number FROM projects p JOIN users u ON u.id = p.owner_id WHERE p.id = :id');
         $stmt->execute([':id' => $projectId]);
         $item = $stmt->fetch();
         if (!$item) {
@@ -354,15 +354,25 @@ final class ProjectController
             return (int) $item['id'];
         }, $items);
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $stmt = $pdo->prepare('SELECT pp.project_id, u.email FROM project_participants pp JOIN users u ON u.id = pp.user_id WHERE pp.project_id IN (' . $placeholders . ')');
+        $stmt = $pdo->prepare('SELECT pp.project_id, u.name, u.email, u.faculty_number FROM project_participants pp JOIN users u ON u.id = pp.user_id WHERE pp.project_id IN (' . $placeholders . ')');
         $stmt->execute($ids);
         $rows = $stmt->fetchAll();
         $map = [];
+        $names = [];
+        $nameLabels = [];
         foreach ($rows as $row) {
             $map[$row['project_id']][] = $row['email'];
+            $names[$row['project_id']][] = $row['name'];
+            $label = $row['name'];
+            if (!empty($row['faculty_number'])) {
+                $label .= ' (' . $row['faculty_number'] . ')';
+            }
+            $nameLabels[$row['project_id']][] = $label;
         }
-        return array_map(function (array $item) use ($map) {
+        return array_map(function (array $item) use ($map, $names, $nameLabels) {
             $item['participants'] = $map[$item['id']] ?? [];
+            $item['participants_names'] = $names[$item['id']] ?? [];
+            $item['participants_labels'] = $nameLabels[$item['id']] ?? [];
             return $item;
         }, $items);
     }

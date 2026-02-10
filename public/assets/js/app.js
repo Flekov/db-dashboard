@@ -78,6 +78,48 @@ function showToast(message) {
 
 window.showToast = showToast;
 
+function formatCsvValue(value) {
+  if (value === null || value === undefined) return '';
+  if (Array.isArray(value)) {
+    return formatCsvValue(value.join(', '));
+  }
+  if (typeof value === 'object') {
+    return formatCsvValue(JSON.stringify(value));
+  }
+  const text = String(value);
+  if (/[",\n\r]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
+function exportToCsv(filename, columns, rows) {
+  if (!rows || rows.length === 0) {
+    alert('No data to export.');
+    return;
+  }
+  const header = columns.map((col) => formatCsvValue(col.label || col.key)).join(',');
+  const lines = rows.map((row) => columns.map((col) => {
+    if (typeof col.get === 'function') {
+      return formatCsvValue(col.get(row));
+    }
+    return formatCsvValue(row[col.key]);
+  }).join(','));
+  const csv = '\ufeff' + [header, ...lines].join('\r\n');
+  const stamp = new Date().toISOString().slice(0, 10);
+  const safeName = filename.endsWith('.csv') ? filename : `${filename}-${stamp}.csv`;
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = safeName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(link.href);
+}
+
+window.exportToCsv = exportToCsv;
+
 function ensureProfileModal() {
   if (document.getElementById('profile-modal')) return;
   const modal = document.createElement('div');
