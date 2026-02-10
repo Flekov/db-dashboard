@@ -402,6 +402,14 @@ select[multiple] {
   width: 100%;
 }
 
+.template-body-block {
+  margin-top: 1.5rem;
+}
+
+#template-body {
+  width: 100%;
+}
+
 .stack {
   display: grid;
   gap: 0.7rem;
@@ -693,6 +701,11 @@ select[multiple] {
   color: #b91c1c;
   border: 1px solid rgba(185, 28, 28, 0.35);
   box-shadow: inset 0 0 0 1px rgba(185, 28, 28, 0.12);
+}
+
+.btn.success {
+  background: linear-gradient(135deg, #0f766e, #22c55e);
+  box-shadow: 0 14px 26px rgba(34, 197, 94, 0.22);
 }
 .confirm-modal {
   width: min(480px, 92vw);

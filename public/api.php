@@ -29,6 +29,7 @@ $router->add('GET', '/templates', [TemplateController::class, 'list']);
 $router->add('POST', '/templates', [TemplateController::class, 'create']);
 $router->add('PUT', '/templates/{id}', [TemplateController::class, 'update']);
 $router->add('DELETE', '/templates/{id}', [TemplateController::class, 'delete']);
+$router->add('POST', '/templates/{id}/run', [TemplateController::class, 'run']);
 
 $router->add('GET', '/projects', [ProjectController::class, 'list']);
 $router->add('POST', '/projects', [ProjectController::class, 'create']);

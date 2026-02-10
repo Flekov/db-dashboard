@@ -270,6 +270,7 @@ if (exportUsersBtn) {
       { key: 'email', label: 'Email' },
       { key: 'faculty_number', label: 'Faculty number' },
       { key: 'role', label: 'Role' },
+      { key: 'created_at', label: 'Created at' },
     ], userItems);
   });
 }

@@ -50,6 +50,7 @@ if (!window.iconPaths) {
     edit: '/icons/edit_26dp_FFFFFF_FILL0_wght400_GRAD0_opsz24.svg',
     delete: '/icons/delete_26dp_FFFFFF_FILL0_wght400_GRAD0_opsz24.svg',
     download: '/icons/download_24dp_FF7A3D_FILL0_wght400_GRAD0_opsz24.svg',
+    play: '/icons/play_arrow_24dp_FF7A3D_FILL0_wght400_GRAD0_opsz24.svg',
   };
 }
 

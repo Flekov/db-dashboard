@@ -20,6 +20,7 @@ const confirmModal = document.getElementById('confirm-modal');
 const confirmMessage = document.getElementById('confirm-message');
 const confirmOk = document.getElementById('confirm-ok');
 const confirmCancel = document.getElementById('confirm-cancel');
+const confirmTitle = confirmModal ? confirmModal.querySelector('.modal-header h3') : null;
 const itemModal = document.getElementById('item-modal');
 const itemModalTitle = document.getElementById('item-modal-title');
 const itemModalForm = document.getElementById('item-modal-form');
@@ -124,6 +125,48 @@ function setMode(nextMode) {
 function confirmAction(message) {
   return new Promise((resolve) => {
     confirmMessage.textContent = message;
+    if (confirmTitle) confirmTitle.textContent = 'Confirm delete';
+    confirmOk.textContent = 'Delete';
+    confirmOk.classList.remove('success');
+    confirmOk.classList.add('danger');
+    confirmModal.classList.remove('hidden');
+
+    const cleanup = () => {
+      confirmModal.classList.add('hidden');
+      confirmOk.removeEventListener('click', onOk);
+      confirmCancel.removeEventListener('click', onCancel);
+      confirmModal.removeEventListener('click', onBackdrop);
+    };
+
+    const onOk = () => {
+      cleanup();
+      resolve(true);
+    };
+
+    const onCancel = () => {
+      cleanup();
+      resolve(false);
+    };
+
+    const onBackdrop = (event) => {
+      if (event.target.matches('[data-confirm-close]')) {
+        onCancel();
+      }
+    };
+
+    confirmOk.addEventListener('click', onOk);
+    confirmCancel.addEventListener('click', onCancel);
+    confirmModal.addEventListener('click', onBackdrop);
+  });
+}
+
+function confirmRun(message) {
+  return new Promise((resolve) => {
+    confirmMessage.textContent = message;
+    if (confirmTitle) confirmTitle.textContent = 'Confirm run';
+    confirmOk.textContent = 'Run';
+    confirmOk.classList.remove('danger');
+    confirmOk.classList.add('success');
     confirmModal.classList.remove('hidden');
 
     const cleanup = () => {
@@ -323,6 +366,7 @@ function renderTemplate() {
       <div>DB type</div>
       <div>DB version</div>
       <div>Stack</div>
+      <div>Status</div>
       <div>Actions</div>
     </div>
   `;
@@ -332,10 +376,12 @@ function renderTemplate() {
       <div>${escapeHtml(item.db_type)}</div>
       <div>${escapeHtml(item.db_version || '-')}</div>
       <div>${escapeHtml(item.stack_version || '-')}</div>
+      <div>${Number(item.is_locked) === 1 ? 'Locked' : 'Draft'}</div>
       <div class="row-actions">
+        ${showActions && Number(item.is_locked) !== 1 ? `<button class="btn ghost icon-btn" data-action="run" data-type="template" data-id="${item.id}" title="Run template" aria-label="Run template"><img src="${window.iconPaths?.play || ''}" alt="Run template" /></button>` : ''}
         <button class="btn ghost icon-btn" data-action="view" data-type="template" data-id="${item.id}" title="View" aria-label="View"><img src="${window.iconPaths?.view || ''}" alt="View" /></button>
-        ${showActions ? `<button class="btn icon-btn" data-action="edit" data-type="template" data-id="${item.id}" title="Edit" aria-label="Edit"><img src="${window.iconPaths?.edit || ''}" alt="Edit" /></button>` : ''}
-        ${showActions ? `<button class="btn danger icon-btn" data-action="delete" data-type="template" data-id="${item.id}" title="Delete" aria-label="Delete"><img src="${window.iconPaths?.delete || ''}" alt="Delete" /></button>` : ''}
+        ${showActions && Number(item.is_locked) !== 1 ? `<button class="btn icon-btn" data-action="edit" data-type="template" data-id="${item.id}" title="Edit" aria-label="Edit"><img src="${window.iconPaths?.edit || ''}" alt="Edit" /></button>` : ''}
+        ${showActions && Number(item.is_locked) !== 1 ? `<button class="btn danger icon-btn" data-action="delete" data-type="template" data-id="${item.id}" title="Delete" aria-label="Delete"><img src="${window.iconPaths?.delete || ''}" alt="Delete" /></button>` : ''}
       </div>
     </div>
   `).join('');
@@ -559,6 +605,21 @@ async function handleTableAction(event, type) {
   const itemId = Number(button.dataset.id);
   if (!itemId) return;
 
+  if (action === 'run' && type === 'template' && mode === 'edit') {
+    const item = templates.find((row) => Number(row.id) === itemId);
+    if (!item || Number(item.is_locked) === 1) return;
+    const ok = await confirmRun('Run this template? It will be locked after running.');
+    if (!ok) return;
+    try {
+      await apiRequest(`/templates/${item.id}/run`, { method: 'POST' });
+      await loadTemplate();
+      if (window.showToast) window.showToast('Template executed');
+    } catch (err) {
+      alert(err.message);
+    }
+    return;
+  }
+
   if (action === 'delete' && mode === 'edit') {
     const ok = await confirmAction('Delete this item?');
     if (!ok) return;
@@ -584,7 +645,9 @@ async function handleTableAction(event, type) {
     downloadServerJson(item);
     return;
   }
-  openItemModal(type, action === 'edit' ? 'edit' : 'view', item);
+  const lockedTemplate = type === 'template' && Number(item.is_locked) === 1;
+  const modeToUse = action === 'edit' && !lockedTemplate ? 'edit' : 'view';
+  openItemModal(type, modeToUse, item);
 }
 
 templateTable.addEventListener('click', (event) => handleTableAction(event, 'template'));

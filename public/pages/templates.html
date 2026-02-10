@@ -43,10 +43,20 @@
               <button type="submit" class="btn">Create</button>
             </form>
           </div>
-          <div>
+          <div class="template-body-block">
             <h2>Body</h2>
             <p class="muted">Add JSON keys for scripts or configuration.</p>
-            <textarea id="template-body" rows="10" placeholder='{"create_user":"...","create_db":"...","config_files":["config_db.php"]}'></textarea>
+            <textarea id="template-body" rows="14" placeholder='{
+  "create_user": "CREATE USER IF NOT EXISTS `app`@`%` IDENTIFIED BY `secret`;",
+  "create_db": "CREATE DATABASE IF NOT EXISTS `my_app` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;",
+  "schema": [
+    "CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(120) NOT NULL);",
+    "CREATE TABLE IF NOT EXISTS posts (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, body TEXT);"
+  ],
+  "seed": [
+    "INSERT INTO users (name) SELECT `Admin` WHERE NOT EXISTS (SELECT 1 FROM users WHERE name = `Admin`);"
+  ]
+}'></textarea>
           </div>
         </section>
         <section class="panel">

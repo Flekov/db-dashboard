@@ -72,6 +72,9 @@ CREATE TABLE templates (
   stack_version VARCHAR(64),
   notes TEXT,
   body_json TEXT,
+  is_locked TINYINT(1) NOT NULL DEFAULT 0,
+  locked_at DATETIME NULL,
+  last_run_at DATETIME NULL,
   created_at DATETIME NOT NULL,
   FOREIGN KEY (project_id) REFERENCES projects(id)
 ) ENGINE=InnoDB;

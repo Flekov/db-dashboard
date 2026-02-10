@@ -121,7 +121,9 @@ if (exportProjectsBtn) {
       { key: 'version', label: 'Version' },
       { key: 'type', label: 'Type' },
       { key: 'status', label: 'Status' },
+      { key: 'owner_id', label: 'Owner ID' },
       { key: 'owner_name', label: 'Owner name' },
+      { key: 'owner_email', label: 'Owner email' },
       { key: 'owner_faculty_number', label: 'Owner faculty number' },
       { key: 'created_at', label: 'Created at' },
       { label: 'Participants', get: (row) => (row.participants_labels || []).join(', ') },
@@ -192,6 +194,7 @@ bulkBtn.addEventListener('click', async () => {
       method: 'POST',
       body: JSON.stringify({ items: payload }),
     });
+    await loadTags();
     await loadProjects();
     if (window.showToast) window.showToast('Projects imported');
   } catch (err) {

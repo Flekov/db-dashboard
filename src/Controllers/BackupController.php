@@ -105,7 +105,7 @@ final class BackupController
             Response::json(['error' => 'Unable to create backup directory'], 500);
         }
 
-        $stmt = $pdo->prepare('SELECT name, body_json FROM templates WHERE project_id = :project_id');
+        $stmt = $pdo->prepare('SELECT name, body_json, created_at FROM templates WHERE project_id = :project_id');
         $stmt->execute([':project_id' => $projectId]);
         $templates = $stmt->fetchAll();
         foreach ($templates as $row) {
@@ -120,7 +120,13 @@ final class BackupController
                 $body = [];
             }
 
-            $fileName = $templateName . '_' . $versionLabel . '.json';
+            $createdAt = (string) ($row['created_at'] ?? '');
+            if ($createdAt !== '') {
+                $createdAt = str_replace([':', ' '], ['-', '_'], $createdAt);
+            } else {
+                $createdAt = $timestamp;
+            }
+            $fileName = $createdAt . '_' . $templateName . '.json';
             $filePath = $backupDir . DIRECTORY_SEPARATOR . $fileName;
             $json = json_encode($body, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
             if ($json === false || file_put_contents($filePath, $json) === false) {
@@ -179,12 +185,43 @@ final class BackupController
         }
 
         $pdo = Connection::get();
+        $stmt = $pdo->prepare('SELECT location FROM backups WHERE id = :id AND project_id = :project_id');
+        $stmt->execute([
+            ':id' => $backupId,
+            ':project_id' => $projectId,
+        ]);
+        $backup = $stmt->fetch();
+
         $stmt = $pdo->prepare('DELETE FROM backups WHERE id = :id AND project_id = :project_id');
         $stmt->execute([
             ':id' => $backupId,
             ':project_id' => $projectId,
         ]);
 
+        if ($backup && !empty($backup['location']) && is_dir($backup['location'])) {
+            $this->deleteDirectory((string) $backup['location']);
+        }
+
         Response::json(['ok' => true]);
+    }
+
+    private function deleteDirectory(string $path): void
+    {
+        $path = rtrim($path, "\\/ \t\n\r\0\x0B");
+        if ($path === '' || !is_dir($path)) {
+            return;
+        }
+        $items = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($items as $item) {
+            if ($item->isDir()) {
+                @rmdir($item->getPathname());
+            } else {
+                @unlink($item->getPathname());
+            }
+        }
+        @rmdir($path);
     }
 }

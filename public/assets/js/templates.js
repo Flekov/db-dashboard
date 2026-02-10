@@ -9,6 +9,7 @@ const confirmModal = document.getElementById('confirm-modal');
 const confirmMessage = document.getElementById('confirm-message');
 const confirmOk = document.getElementById('confirm-ok');
 const confirmCancel = document.getElementById('confirm-cancel');
+const confirmTitle = confirmModal ? confirmModal.querySelector('.modal-header h3') : null;
 
 const filterForm = document.getElementById('templates-filter-form');
 const filterProjectSelect = document.getElementById('templates-filter-project');
@@ -133,6 +134,10 @@ function closeModal() {
 function confirmDelete(message) {
   return new Promise((resolve) => {
     confirmMessage.textContent = message;
+    if (confirmTitle) confirmTitle.textContent = 'Confirm delete';
+    confirmOk.textContent = 'Delete';
+    confirmOk.classList.remove('success');
+    confirmOk.classList.add('danger');
     confirmModal.classList.remove('hidden');
 
     const cleanup = () => {
@@ -186,11 +191,13 @@ async function loadTemplates(projectId = null) {
       <div>Name</div>
       <div>DB type</div>
       <div>DB version</div>
+      <div>Status</div>
       <div>Actions</div>
     </div>
   `;
   const rows = data.items.map((item) => {
     const encoded = encodeURIComponent(JSON.stringify(item));
+    const locked = Number(item.is_locked) === 1;
     return `
       <div class="table-row">
         <div>${item.id}</div>
@@ -198,10 +205,12 @@ async function loadTemplates(projectId = null) {
         <div>${item.name}</div>
         <div>${item.db_type}</div>
         <div>${item.db_version || '-'}</div>
+        <div>${locked ? 'Locked' : 'Draft'}</div>
         <div class="row-actions">
+          ${locked ? '' : `<button class="btn ghost icon-btn" data-action="run" data-row="${encoded}" title="Run template" aria-label="Run template"><img src="${window.iconPaths?.play || ''}" alt="Run template" /></button>`}
           <button class="btn ghost icon-btn" data-action="view" data-row="${encoded}" title="View" aria-label="View"><img src="${window.iconPaths?.view || ''}" alt="View" /></button>
-          <button class="btn icon-btn" data-action="edit" data-row="${encoded}" title="Edit" aria-label="Edit"><img src="${window.iconPaths?.edit || ''}" alt="Edit" /></button>
-          <button class="btn danger icon-btn" data-action="delete" data-row="${encoded}" title="Delete" aria-label="Delete"><img src="${window.iconPaths?.delete || ''}" alt="Delete" /></button>
+          ${locked ? '' : `<button class="btn icon-btn" data-action="edit" data-row="${encoded}" title="Edit" aria-label="Edit"><img src="${window.iconPaths?.edit || ''}" alt="Edit" /></button>`}
+          ${locked ? '' : `<button class="btn danger icon-btn" data-action="delete" data-row="${encoded}" title="Delete" aria-label="Delete"><img src="${window.iconPaths?.delete || ''}" alt="Delete" /></button>`}
         </div>
       </div>
     `;
@@ -214,7 +223,9 @@ async function loadTemplates(projectId = null) {
   if (!openedFromProject && Number.isFinite(initialItemId)) {
     const item = data.items.find((row) => Number(row.id) === initialItemId);
     if (item) {
-      openModal(initialMode === 'edit' ? 'edit' : 'view', item);
+      const locked = Number(item.is_locked) === 1;
+      const mode = initialMode === 'edit' && !locked ? 'edit' : 'view';
+      openModal(mode, item);
       openedFromProject = true;
     }
   }
@@ -233,8 +244,49 @@ if (exportTemplatesBtn) {
       { key: 'stack_version', label: 'Stack version' },
       { key: 'notes', label: 'Notes' },
       { key: 'body_json', label: 'Body JSON' },
+      { key: 'is_locked', label: 'Locked' },
+      { key: 'locked_at', label: 'Locked at' },
+      { key: 'last_run_at', label: 'Last run at' },
       { key: 'created_at', label: 'Created at' },
     ], templateItems);
+  });
+}
+
+function confirmRun(message) {
+  return new Promise((resolve) => {
+    confirmMessage.textContent = message;
+    if (confirmTitle) confirmTitle.textContent = 'Confirm run';
+    confirmOk.textContent = 'Run';
+    confirmOk.classList.remove('danger');
+    confirmOk.classList.add('success');
+    confirmModal.classList.remove('hidden');
+
+    const cleanup = () => {
+      confirmModal.classList.add('hidden');
+      confirmOk.removeEventListener('click', onOk);
+      confirmCancel.removeEventListener('click', onCancel);
+      confirmModal.removeEventListener('click', onBackdrop);
+    };
+
+    const onOk = () => {
+      cleanup();
+      resolve(true);
+    };
+
+    const onCancel = () => {
+      cleanup();
+      resolve(false);
+    };
+
+    const onBackdrop = (event) => {
+      if (event.target.matches('[data-confirm-close]')) {
+        onCancel();
+      }
+    };
+
+    confirmOk.addEventListener('click', onOk);
+    confirmCancel.addEventListener('click', onCancel);
+    confirmModal.addEventListener('click', onBackdrop);
   });
 }
 
@@ -242,6 +294,20 @@ templatesTable.addEventListener('click', async (event) => {
   const button = event.target.closest('button[data-action]');
   if (!button) return;
   const item = JSON.parse(decodeURIComponent(button.dataset.row));
+
+  if (button.dataset.action === 'run') {
+    const ok = await confirmRun('Run this template? It will be locked after running.');
+    if (!ok) return;
+    try {
+      await apiRequest(`/templates/${item.id}/run`, { method: 'POST' });
+      const projectId = filterProjectSelect && filterProjectSelect.value ? Number(filterProjectSelect.value) : null;
+      await loadTemplates(projectId);
+      if (window.showToast) window.showToast('Template executed');
+    } catch (err) {
+      alert(err.message);
+    }
+    return;
+  }
 
   if (button.dataset.action === 'delete') {
     const ok = await confirmDelete(`Delete template "${item.name}"?`);
@@ -256,7 +322,8 @@ templatesTable.addEventListener('click', async (event) => {
     return;
   }
 
-  openModal(button.dataset.action, item);
+  const mode = button.dataset.action === 'edit' && Number(item.is_locked) !== 1 ? 'edit' : 'view';
+  openModal(mode, item);
 });
 
 async function loadProjects() {

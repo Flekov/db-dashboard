@@ -8,7 +8,8 @@
       "owner": { "name": "pesho", "email": "pesho@example.com", "faculty_number": "123456" },
       "participants": [
         { "name": "gosho", "email": "gosho@example.com", "faculty_number": "123456" }
-      ]
+      ],
+      "tags": ["mysql", "projects-2025"]
     },
     {     
       "code": "4567",
@@ -20,6 +21,7 @@
       "participants": [
         { "name": "pesho", "email": "pesho@example.com", "faculty_number": "123456" },
         { "name": "kiril", "email": "kiril@example.com", "faculty_number": "431" }
-      ]
+      ],
+      "tags": ["mysql", "projects-2025"]
     }
 ]

@@ -96,7 +96,7 @@ final class ProjectController
             }
         }
 
-        $this->createProjectDatabase($name);
+        $this->createProjectDatabase($name, false);
 
         $stmt = $pdo->prepare('INSERT INTO projects (code, name, short_name, version, type, status, owner_id, created_at) VALUES (:code, :name, :short_name, :version, :type, :status, :owner_id, :created_at)');
         $stmt->execute([
@@ -177,7 +177,7 @@ final class ProjectController
                 ], $auth);
             }
 
-            $this->createProjectDatabase($name);
+            $this->createProjectDatabase($name, true);
 
             $stmt = $pdo->prepare('INSERT INTO projects (code, name, short_name, version, type, status, owner_id, created_at) VALUES (:code, :name, :short_name, :version, :type, :status, :owner_id, :created_at)');
             $stmt->execute([
@@ -196,8 +196,14 @@ final class ProjectController
             if (is_array($participants)) {
                 $this->replaceParticipantsForImport($pdo, $projectId, $participants, $auth);
             }
-            if (array_key_exists('tags', $item) && is_array($item['tags'])) {
-                $this->replaceTags($pdo, $projectId, $item['tags']);
+            if (array_key_exists('tags', $item)) {
+                $tagsValue = $item['tags'];
+                if (is_string($tagsValue)) {
+                    $tagsValue = array_values(array_filter(array_map('trim', explode(',', $tagsValue))));
+                }
+                if (is_array($tagsValue)) {
+                    $this->replaceTags($pdo, $projectId, $tagsValue);
+                }
             }
         }
 
@@ -690,7 +696,7 @@ final class ProjectController
         return $row ?: null;
     }
 
-    private function createProjectDatabase(string $name): void
+    private function createProjectDatabase(string $name, bool $allowExisting = false): void
     {
         $dbName = $this->normalizeDatabaseName($name);
         if ($dbName === '') {
@@ -721,6 +727,9 @@ final class ProjectController
         $stmt = $pdo->prepare('SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = :name');
         $stmt->execute([':name' => $dbName]);
         if ($stmt->fetch()) {
+            if ($allowExisting) {
+                return;
+            }
             Response::json(['error' => 'Database already exists'], 409);
         }
 
