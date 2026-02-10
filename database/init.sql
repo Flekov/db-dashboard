@@ -6,6 +6,8 @@ USE db_dashboard;
 
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS backups;
+DROP TABLE IF EXISTS actions;
+DROP TABLE IF EXISTS vhosts;
 DROP TABLE IF EXISTS project_tags;
 DROP TABLE IF EXISTS tags;
 DROP TABLE IF EXISTS project_participants;
@@ -51,7 +53,7 @@ CREATE TABLE sessions (
 CREATE TABLE projects (
   id INT AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(64) NOT NULL,
-  name VARCHAR(190) NOT NULL,
+  name VARCHAR(190) NOT NULL UNIQUE,
   short_name VARCHAR(120),
   version VARCHAR(64),
   type VARCHAR(64),
@@ -63,7 +65,7 @@ CREATE TABLE projects (
 
 CREATE TABLE templates (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  project_id INT NOT NULL UNIQUE,
+  project_id INT NOT NULL,
   name VARCHAR(120) NOT NULL,
   db_type VARCHAR(64) NOT NULL,
   db_version VARCHAR(64),
@@ -111,12 +113,32 @@ CREATE TABLE project_participants (
   FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB;
 
+CREATE TABLE actions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  project_id INT NOT NULL,
+  action_type VARCHAR(64) NOT NULL,
+  status VARCHAR(32) NOT NULL,
+  payload_json TEXT,
+  created_at DATETIME NOT NULL,
+  FOREIGN KEY (project_id) REFERENCES projects(id)
+) ENGINE=InnoDB;
+
 CREATE TABLE backups (
   id INT AUTO_INCREMENT PRIMARY KEY,
   project_id INT NOT NULL,
   backup_type VARCHAR(32) NOT NULL,
   location VARCHAR(255),
   version_label VARCHAR(64),
+  created_at DATETIME NOT NULL,
+  FOREIGN KEY (project_id) REFERENCES projects(id)
+) ENGINE=InnoDB;
+
+CREATE TABLE vhosts (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  project_id INT NOT NULL,
+  host VARCHAR(190) NOT NULL,
+  doc_root VARCHAR(255),
+  status VARCHAR(32) NOT NULL,
   created_at DATETIME NOT NULL,
   FOREIGN KEY (project_id) REFERENCES projects(id)
 ) ENGINE=InnoDB;
@@ -167,6 +189,14 @@ INSERT INTO project_participants (project_id, user_id) VALUES
   (1, 1),
   (1, 2);
 
+INSERT INTO actions (project_id, action_type, status, payload_json, created_at) VALUES
+  (1, 'create_db', 'done', '{\"db\":\"myweb_v2\"}', NOW()),
+  (2, 'migrate', 'queued', '{\"from\":\"v1\",\"to\":\"v2\"}', NOW());
+
 INSERT INTO backups (project_id, backup_type, location, version_label, created_at) VALUES
   (1, 'sql', 'C:/backups/myweb_v2.sql', 'v2.0.1', NOW()),
   (2, 'code', 'C:/backups/portal_v1.zip', 'v1.0.0', NOW());
+
+INSERT INTO vhosts (project_id, host, doc_root, status, created_at) VALUES
+  (1, 'myweb.local', 'C:/xampp/htdocs/myweb', 'active', NOW()),
+  (2, 'portal.local', 'C:/xampp/htdocs/portal', 'active', NOW());

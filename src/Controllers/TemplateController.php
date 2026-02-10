@@ -76,12 +76,6 @@ final class TemplateController
             Response::json(['error' => 'Project not found'], 404);
         }
 
-        $stmt = $pdo->prepare('SELECT id FROM templates WHERE project_id = :project_id');
-        $stmt->execute([':project_id' => $projectId]);
-        if ($stmt->fetch()) {
-            Response::json(['error' => 'Template already exists for project'], 409);
-        }
-
         $stmt = $pdo->prepare('INSERT INTO templates (project_id, name, db_type, db_version, stack_version, notes, body_json, created_at) VALUES (:project_id, :name, :db_type, :db_version, :stack_version, :notes, :body_json, :created_at)');
         $stmt->execute([
             ':project_id' => $projectId,
@@ -117,11 +111,6 @@ final class TemplateController
             $stmt->execute([':id' => $projectId]);
             if (!$stmt->fetch()) {
                 Response::json(['error' => 'Project not found'], 404);
-            }
-            $stmt = $pdo->prepare('SELECT id FROM templates WHERE project_id = :project_id AND id <> :id');
-            $stmt->execute([':project_id' => $projectId, ':id' => $id]);
-            if ($stmt->fetch()) {
-                Response::json(['error' => 'Template already exists for project'], 409);
             }
         }
 

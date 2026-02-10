@@ -1,17 +1,64 @@
 const recentProjects = document.getElementById('recent-projects');
+const confirmModal = document.getElementById('confirm-modal');
+const confirmMessage = document.getElementById('confirm-message');
+const confirmOk = document.getElementById('confirm-ok');
+const confirmCancel = document.getElementById('confirm-cancel');
+
+function confirmDelete(message) {
+  return new Promise((resolve) => {
+    if (!confirmModal) {
+      resolve(window.confirm(message));
+      return;
+    }
+    confirmMessage.textContent = message;
+    confirmModal.classList.remove('hidden');
+
+    const cleanup = () => {
+      confirmModal.classList.add('hidden');
+      confirmOk.removeEventListener('click', onOk);
+      confirmCancel.removeEventListener('click', onCancel);
+      confirmModal.removeEventListener('click', onBackdrop);
+    };
+
+    const onOk = () => {
+      cleanup();
+      resolve(true);
+    };
+
+    const onCancel = () => {
+      cleanup();
+      resolve(false);
+    };
+
+    const onBackdrop = (event) => {
+      if (event.target.matches('[data-confirm-close]')) {
+        onCancel();
+      }
+    };
+
+    confirmOk.addEventListener('click', onOk);
+    confirmCancel.addEventListener('click', onCancel);
+    confirmModal.addEventListener('click', onBackdrop);
+  });
+}
 async function loadDashboard() {
   try {
     const [projects, servers, templates, backups] = await Promise.all([
-      apiRequest('/projects'),
-      apiRequest('/servers'),
-      apiRequest('/templates'),
+      apiRequest('/projects').catch(() => ({ items: [] })),
+      apiRequest('/servers').catch(() => ({ items: [] })),
+      apiRequest('/templates').catch(() => ({ items: [] })),
       apiRequest('/backups').catch(() => ({ items: [] })),
     ]);
 
-    document.getElementById('stat-projects').textContent = projects.items.length;
-    document.getElementById('stat-servers').textContent = servers.items.length;
-    document.getElementById('stat-templates').textContent = templates.items.length;
-    document.getElementById('stat-backups').textContent = backups.items.length;
+    const projectItems = projects.items || [];
+    const serverItems = servers.items || [];
+    const templateItems = templates.items || [];
+    const backupItems = backups.items || [];
+
+    document.getElementById('stat-projects').textContent = projectItems.length;
+    document.getElementById('stat-servers').textContent = serverItems.length;
+    document.getElementById('stat-templates').textContent = templateItems.length;
+    document.getElementById('stat-backups').textContent = backupItems.length;
 
     const header = `
       <div class="table-row table-header">
@@ -22,7 +69,7 @@ async function loadDashboard() {
         <div>Actions</div>
       </div>
     `;
-    const rows = projects.items.slice(0, 5).map((item) => {
+    const rows = projectItems.slice(0, 5).map((item) => {
       const encoded = encodeURIComponent(JSON.stringify(item));
       return `
         <div class="table-row">
@@ -38,7 +85,7 @@ async function loadDashboard() {
         </div>
       `;
     }).join('');
-    const empty = projects.items.length
+    const empty = projectItems.length
       ? ''
       : '<div class="table-row table-empty"><div>No projects found.</div></div>';
     recentProjects.innerHTML = header + rows + empty;
@@ -53,7 +100,7 @@ recentProjects.addEventListener('click', async (event) => {
   const item = JSON.parse(decodeURIComponent(button.dataset.row));
 
   if (button.dataset.action === 'delete') {
-    const ok = confirm(`Delete project "${item.name}"?`);
+    const ok = await confirmDelete(`Delete project "${item.name}"?`);
     if (!ok) return;
     try {
       await apiRequest(`/projects/${item.id}`, { method: 'DELETE' });

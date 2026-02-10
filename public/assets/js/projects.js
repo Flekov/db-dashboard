@@ -3,6 +3,10 @@ const exportProjectsBtn = document.getElementById('export-projects');
 const tagsRoot = document.getElementById('project-tags');
 const filterForm = document.getElementById('projects-filter-form');
 const filterTagsRoot = document.getElementById('projects-filter-tags');
+const confirmModal = document.getElementById('confirm-modal');
+const confirmMessage = document.getElementById('confirm-message');
+const confirmOk = document.getElementById('confirm-ok');
+const confirmCancel = document.getElementById('confirm-cancel');
 let projectItems = [];
 let tagItems = [];
 let tagsInput = null;
@@ -22,6 +26,44 @@ function renderTags() {
   if (filterTagsInput) filterTagsInput.setSuggestions(tagItems.map((tag) => tag.name));
 }
 
+function confirmDelete(message) {
+  return new Promise((resolve) => {
+    if (!confirmModal) {
+      resolve(window.confirm(message));
+      return;
+    }
+    confirmMessage.textContent = message;
+    confirmModal.classList.remove('hidden');
+
+    const cleanup = () => {
+      confirmModal.classList.add('hidden');
+      confirmOk.removeEventListener('click', onOk);
+      confirmCancel.removeEventListener('click', onCancel);
+      confirmModal.removeEventListener('click', onBackdrop);
+    };
+
+    const onOk = () => {
+      cleanup();
+      resolve(true);
+    };
+
+    const onCancel = () => {
+      cleanup();
+      resolve(false);
+    };
+
+    const onBackdrop = (event) => {
+      if (event.target.matches('[data-confirm-close]')) {
+        onCancel();
+      }
+    };
+
+    confirmOk.addEventListener('click', onOk);
+    confirmCancel.addEventListener('click', onCancel);
+    confirmModal.addEventListener('click', onBackdrop);
+  });
+}
+
 async function loadTags() {
   const data = await apiRequest('/tags').catch(() => ({ items: [] }));
   tagItems = data.items || [];
@@ -30,7 +72,7 @@ async function loadTags() {
 
 async function loadProjects(tags = []) {
   const query = tags.length ? `?tags=${encodeURIComponent(tags.join(','))}` : '';
-  const data = await apiRequest(`/projects${query}`);
+  const data = await apiRequest(`/projects${query}`).catch(() => ({ items: [] }));
   projectItems = data.items || [];
   if (exportProjectsBtn) {
     exportProjectsBtn.classList.toggle('hidden', projectItems.length === 0);
@@ -45,7 +87,7 @@ async function loadProjects(tags = []) {
       <div>Actions</div>
     </div>
   `;
-  const rows = data.items.map((item) => {
+  const rows = projectItems.map((item) => {
     const encoded = encodeURIComponent(JSON.stringify(item));
     return `
       <div class="table-row">
@@ -62,7 +104,7 @@ async function loadProjects(tags = []) {
       </div>
     `;
   }).join('');
-  const empty = data.items.length
+  const empty = projectItems.length
     ? ''
     : '<div class="table-row table-empty"><div>No projects found.</div></div>';
   projectsTable.innerHTML = header + rows + empty;
@@ -94,7 +136,7 @@ projectsTable.addEventListener('click', async (event) => {
   const item = JSON.parse(decodeURIComponent(button.dataset.row));
 
   if (button.dataset.action === 'delete') {
-    const ok = confirm(`Delete project "${item.name}"?`);
+    const ok = await confirmDelete(`Delete project "${item.name}"?`);
     if (!ok) return;
     try {
       await apiRequest(`/projects/${item.id}`, { method: 'DELETE' });

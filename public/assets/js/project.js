@@ -341,7 +341,7 @@ function renderTemplate() {
   `).join('');
   const empty = templates.length
     ? ''
-    : '<div class="table-row table-empty"><div>No template set for this project.</div></div>';
+    : '<div class="table-row table-empty"><div>No templates for this project.</div></div>';
   templateTable.innerHTML = header + rows + empty;
 }
 

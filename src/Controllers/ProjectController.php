@@ -79,6 +79,13 @@ final class ProjectController
         }
 
         $pdo = Connection::get();
+        $name = trim((string) ($data['name'] ?? ''));
+        $stmt = $pdo->prepare('SELECT id FROM projects WHERE name = :name');
+        $stmt->execute([':name' => $name]);
+        if ($stmt->fetch()) {
+            Response::json(['error' => 'Project name must be unique'], 409);
+        }
+
         $ownerEmail = trim((string) ($data['owner_email'] ?? ''));
         if ($current['role'] !== 'admin' || $ownerEmail === '') {
             $ownerId = (int) $current['id'];
@@ -89,10 +96,12 @@ final class ProjectController
             }
         }
 
+        $this->createProjectDatabase($name);
+
         $stmt = $pdo->prepare('INSERT INTO projects (code, name, short_name, version, type, status, owner_id, created_at) VALUES (:code, :name, :short_name, :version, :type, :status, :owner_id, :created_at)');
         $stmt->execute([
             ':code' => trim($data['code']),
-            ':name' => trim($data['name']),
+            ':name' => $name,
             ':short_name' => trim($data['short_name'] ?? ''),
             ':version' => trim($data['version'] ?? ''),
             ':type' => trim($data['type'] ?? ''),
@@ -135,6 +144,17 @@ final class ProjectController
                 continue;
             }
 
+            $name = trim((string) $item['name']);
+            if ($name === '') {
+                continue;
+            }
+
+            $stmt = $pdo->prepare('SELECT id FROM projects WHERE name = :name');
+            $stmt->execute([':name' => $name]);
+            if ($stmt->fetch()) {
+                continue;
+            }
+
             $ownerPayload = $item['owner'] ?? null;
             $ownerEmail = '';
             $ownerName = '';
@@ -157,10 +177,12 @@ final class ProjectController
                 ], $auth);
             }
 
+            $this->createProjectDatabase($name);
+
             $stmt = $pdo->prepare('INSERT INTO projects (code, name, short_name, version, type, status, owner_id, created_at) VALUES (:code, :name, :short_name, :version, :type, :status, :owner_id, :created_at)');
             $stmt->execute([
                 ':code' => trim((string) $item['code']),
-                ':name' => trim((string) $item['name']),
+                ':name' => $name,
                 ':short_name' => trim((string) ($item['short_name'] ?? '')),
                 ':version' => trim((string) ($item['version'] ?? '')),
                 ':type' => trim((string) ($item['type'] ?? '')),
@@ -220,6 +242,12 @@ final class ProjectController
             }
         }
 
+        $stmt = $pdo->prepare('SELECT id FROM projects WHERE name = :name AND id <> :id');
+        $stmt->execute([':name' => $fields['name'], ':id' => $id]);
+        if ($stmt->fetch()) {
+            Response::json(['error' => 'Project name must be unique'], 409);
+        }
+
         $stmt = $pdo->prepare('UPDATE projects SET code = :code, name = :name, short_name = :short_name, version = :version, type = :type, status = :status' . ($ownerId ? ', owner_id = :owner_id' : '') . ' WHERE id = :id');
         $params = [
             ':code' => $fields['code'],
@@ -258,7 +286,16 @@ final class ProjectController
             Response::json(['error' => 'Forbidden'], 403);
         }
 
+        $stmt = $pdo->prepare('SELECT name FROM projects WHERE id = :id');
+        $stmt->execute([':id' => $id]);
+        $project = $stmt->fetch();
+        if (!$project) {
+            Response::json(['error' => 'Project not found'], 404);
+        }
+
         $pdo->beginTransaction();
+        $stmt = $pdo->prepare('DELETE FROM project_tags WHERE project_id = :project_id');
+        $stmt->execute([':project_id' => $id]);
         $stmt = $pdo->prepare('DELETE FROM templates WHERE project_id = :project_id');
         $stmt->execute([':project_id' => $id]);
         $stmt = $pdo->prepare('DELETE FROM servers WHERE project_id = :project_id');
@@ -274,6 +311,8 @@ final class ProjectController
         $stmt = $pdo->prepare('DELETE FROM projects WHERE id = :id');
         $stmt->execute([':id' => $id]);
         $pdo->commit();
+
+        $this->dropProjectDatabase((string) $project['name']);
 
         Response::json(['ok' => true]);
     }
@@ -649,6 +688,90 @@ final class ProjectController
         $stmt->execute([':id' => $projectId]);
         $row = $stmt->fetch();
         return $row ?: null;
+    }
+
+    private function createProjectDatabase(string $name): void
+    {
+        $dbName = $this->normalizeDatabaseName($name);
+        if ($dbName === '') {
+            Response::json(['error' => 'Invalid project name'], 422);
+        }
+
+        $configPath = BASE_PATH . '/config.json';
+        if (!file_exists($configPath)) {
+            Response::json(['error' => 'Missing config.json'], 500);
+        }
+        $config = json_decode(file_get_contents($configPath), true);
+        if (!is_array($config)) {
+            Response::json(['error' => 'Invalid config.json'], 500);
+        }
+        $db = $config['db'] ?? [];
+        $host = $db['host'] ?? '127.0.0.1';
+        $port = (int) ($db['port'] ?? 3306);
+        $charset = $db['charset'] ?? 'utf8mb4';
+        $user = $db['user'] ?? 'root';
+        $pass = $db['pass'] ?? '';
+
+        $dsn = sprintf('mysql:host=%s;port=%d;charset=%s', $host, $port, $charset);
+        $pdo = new \PDO($dsn, $user, $pass, [
+            \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+            \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
+        ]);
+
+        $stmt = $pdo->prepare('SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = :name');
+        $stmt->execute([':name' => $dbName]);
+        if ($stmt->fetch()) {
+            Response::json(['error' => 'Database already exists'], 409);
+        }
+
+        $collation = $charset === 'utf8mb4' ? 'utf8mb4_unicode_ci' : null;
+        $safeName = str_replace('`', '``', $dbName);
+        $sql = sprintf(
+            'CREATE DATABASE `%s` CHARACTER SET %s%s',
+            $safeName,
+            $charset,
+            $collation ? ' COLLATE ' . $collation : ''
+        );
+        $pdo->exec($sql);
+    }
+
+    private function normalizeDatabaseName(string $name): string
+    {
+        $normalized = preg_replace('/[^A-Za-z0-9_]+/', '_', $name);
+        $normalized = trim((string) $normalized, '_');
+        return strtolower($normalized);
+    }
+
+    private function dropProjectDatabase(string $name): void
+    {
+        $dbName = $this->normalizeDatabaseName($name);
+        if ($dbName === '') {
+            return;
+        }
+
+        $configPath = BASE_PATH . '/config.json';
+        if (!file_exists($configPath)) {
+            return;
+        }
+        $config = json_decode(file_get_contents($configPath), true);
+        if (!is_array($config)) {
+            return;
+        }
+        $db = $config['db'] ?? [];
+        $host = $db['host'] ?? '127.0.0.1';
+        $port = (int) ($db['port'] ?? 3306);
+        $charset = $db['charset'] ?? 'utf8mb4';
+        $user = $db['user'] ?? 'root';
+        $pass = $db['pass'] ?? '';
+
+        $dsn = sprintf('mysql:host=%s;port=%d;charset=%s', $host, $port, $charset);
+        $pdo = new \PDO($dsn, $user, $pass, [
+            \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+            \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
+        ]);
+
+        $safeName = str_replace('`', '``', $dbName);
+        $pdo->exec(sprintf('DROP DATABASE IF EXISTS `%s`', $safeName));
     }
 
 }
