@@ -17,15 +17,38 @@ const serverProjectSelect = document.getElementById('server-project-select');
 let projects = [];
 let serverItems = [];
 
+function downloadServerJson(item) {
+  const payload = {
+    host: item.host || '',
+    port: Number(item.port) || 3306,
+    name: item.name || '',
+    user: item.db_user || '',
+    pass: item.db_pass || '',
+    charset: item.charset || '',
+  };
+  const fileBase = String(item.name || 'server').replace(/[^A-Za-z0-9-_]/g, '_');
+  const fileName = `${fileBase || 'server'}_${item.id || 'export'}.json`;
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(link.href);
+}
+
 const serverFields = [
   { name: 'id', label: 'ID', readOnly: true },
   { name: 'project_id', label: 'Project', type: 'select' },
-  { name: 'name', label: 'Name' },
+  { name: 'name', label: 'DB name' },
   { name: 'host', label: 'Host' },
   { name: 'port', label: 'Port' },
   { name: 'type', label: 'Type' },
   { name: 'version', label: 'Version' },
-  { name: 'root_user', label: 'Root user' },
+  { name: 'db_user', label: 'User' },
+  { name: 'db_pass', label: 'Password' },
+  { name: 'charset', label: 'Charset' },
   { name: 'created_at', label: 'Created at', readOnly: true }
 ];
 
@@ -160,10 +183,10 @@ async function loadServers(projectId = null) {
     <div class="table-row table-header">
       <div>ID</div>
       <div>Project</div>
-      <div>Name</div>
+      <div>DB name</div>
       <div>Host</div>
-      <div>Type</div>
-      <div>Version</div>
+      <div>User</div>
+      <div>Charset</div>
       <div>Actions</div>
     </div>
   `;
@@ -175,11 +198,12 @@ async function loadServers(projectId = null) {
         <div>${escapeHtml(item.project_name || '-')}</div>
         <div>${item.name}</div>
         <div>${item.host}:${item.port}</div>
-        <div>${item.type}</div>
-        <div>${item.version || '-'}</div>
+        <div>${escapeHtml(item.db_user || '-')}</div>
+        <div>${escapeHtml(item.charset || '-')}</div>
         <div class="row-actions">
           <button class="btn ghost icon-btn" data-action="view" data-row="${encoded}" title="View" aria-label="View"><img src="${window.iconPaths?.view || ''}" alt="View" /></button>
           <button class="btn icon-btn" data-action="edit" data-row="${encoded}" title="Edit" aria-label="Edit"><img src="${window.iconPaths?.edit || ''}" alt="Edit" /></button>
+          <button class="btn ghost icon-btn" data-action="export" data-row="${encoded}" title="Export JSON" aria-label="Export JSON"><img src="${window.iconPaths?.download || ''}" alt="Export JSON" /></button>
           <button class="btn danger icon-btn" data-action="delete" data-row="${encoded}" title="Delete" aria-label="Delete"><img src="${window.iconPaths?.delete || ''}" alt="Delete" /></button>
         </div>
       </div>
@@ -206,12 +230,14 @@ if (exportServersBtn) {
       { key: 'id', label: 'ID' },
       { key: 'project_id', label: 'Project ID' },
       { key: 'project_name', label: 'Project' },
-      { key: 'name', label: 'Name' },
+      { key: 'name', label: 'DB name' },
       { key: 'host', label: 'Host' },
       { key: 'port', label: 'Port' },
       { key: 'type', label: 'Type' },
       { key: 'version', label: 'Version' },
-      { key: 'root_user', label: 'Root user' },
+      { key: 'db_user', label: 'User' },
+      { key: 'db_pass', label: 'Password' },
+      { key: 'charset', label: 'Charset' },
       { key: 'created_at', label: 'Created at' },
     ], serverItems);
   });
@@ -221,6 +247,11 @@ serversTable.addEventListener('click', async (event) => {
   const button = event.target.closest('button[data-action]');
   if (!button) return;
   const item = JSON.parse(decodeURIComponent(button.dataset.row));
+
+  if (button.dataset.action === 'export') {
+    downloadServerJson(item);
+    return;
+  }
 
   if (button.dataset.action === 'delete') {
     const ok = await confirmDelete(`Delete server "${item.name}"?`);
@@ -283,7 +314,9 @@ serverForm.addEventListener('submit', async (event) => {
     port: Number(form.port.value) || 3306,
     type: form.type.value.trim(),
     version: form.version.value.trim(),
-    root_user: form.root_user.value.trim(),
+    db_user: form.db_user.value.trim(),
+    db_pass: form.db_pass.value.trim(),
+    charset: form.charset.value.trim(),
   };
 
   try {

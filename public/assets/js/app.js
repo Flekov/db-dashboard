@@ -49,6 +49,7 @@ if (!window.iconPaths) {
     view: '/icons/visibility_26dp_FF7A3D_FILL0_wght400_GRAD0_opsz24.svg',
     edit: '/icons/edit_26dp_FFFFFF_FILL0_wght400_GRAD0_opsz24.svg',
     delete: '/icons/delete_26dp_FFFFFF_FILL0_wght400_GRAD0_opsz24.svg',
+    download: '/icons/download_24dp_FF7A3D_FILL0_wght400_GRAD0_opsz24.svg',
   };
 }
 
@@ -62,11 +63,12 @@ function ensureToastElement() {
 }
 
 let toastTimer = null;
-function showToast(message) {
+function showToast(message, variant = 'default') {
   ensureToastElement();
   const toast = document.getElementById('toast');
   if (!toast) return;
   toast.textContent = message;
+  toast.classList.toggle('error', variant === 'error');
   toast.classList.remove('hidden');
   if (toastTimer) {
     clearTimeout(toastTimer);
@@ -119,6 +121,189 @@ function exportToCsv(filename, columns, rows) {
 }
 
 window.exportToCsv = exportToCsv;
+
+function createTagsInput(root) {
+  if (!root) return null;
+  const input = root.querySelector('input');
+  const chips = root.querySelector('.tags-chips');
+  const suggest = root.querySelector('.tags-suggest');
+  if (!input || !chips) return null;
+
+  let tags = [];
+  let disabled = false;
+  let suggestions = [];
+  let filtered = [];
+  let suggestOpen = false;
+  let suggestMounted = false;
+
+  const normalize = (value) => value.trim().replace(/\s+/g, ' ');
+
+  const positionSuggest = () => {
+    if (!suggest) return;
+    const rect = root.getBoundingClientRect();
+    suggest.style.top = `${rect.bottom + 6}px`;
+    suggest.style.left = `${rect.left}px`;
+    suggest.style.width = `${rect.width}px`;
+  };
+
+  const ensureSuggestMounted = () => {
+    if (!suggest || suggestMounted) return;
+    document.body.appendChild(suggest);
+    suggestMounted = true;
+  };
+
+  const render = () => {
+    chips.innerHTML = tags.map((tag) => `
+      <span class="tag-chip">
+        <span>${tag}</span>
+        <button type="button" class="tag-remove" data-tag="${tag}" ${disabled ? 'disabled' : ''} aria-label="Remove ${tag}">x</button>
+      </span>
+    `).join('');
+    if (suggest) {
+      if (!suggestOpen || !filtered.length) {
+        suggest.classList.add('hidden');
+        suggest.innerHTML = '';
+        return;
+      }
+      ensureSuggestMounted();
+      suggest.innerHTML = filtered.map((tag) => `
+        <button type="button" class="tags-suggest-item" data-tag="${tag}">${tag}</button>
+      `).join('');
+      positionSuggest();
+      suggest.classList.remove('hidden');
+    }
+  };
+
+  const addTags = (raw) => {
+    const parts = String(raw || '').split(',').map(normalize).filter(Boolean);
+    let changed = false;
+    parts.forEach((part) => {
+      if (!tags.includes(part)) {
+        tags.push(part);
+        changed = true;
+      }
+    });
+    if (changed) render();
+  };
+
+  const removeTag = (tag) => {
+    const next = tags.filter((t) => t !== tag);
+    if (next.length === tags.length) return;
+    tags = next;
+    render();
+  };
+
+  const updateSuggestions = () => {
+    if (!suggest) return;
+    const query = normalize(input.value).toLowerCase();
+    filtered = suggestions
+      .filter((tag) => !tags.includes(tag))
+      .filter((tag) => (query ? tag.toLowerCase().includes(query) : true))
+      .slice(0, 8);
+    suggestOpen = document.activeElement === input;
+    render();
+  };
+
+  input.addEventListener('keydown', (event) => {
+    if (disabled) return;
+    if (event.key === 'Enter' || event.key === ',') {
+      event.preventDefault();
+      addTags(input.value);
+      input.value = '';
+      updateSuggestions();
+    } else if (event.key === 'Backspace' && input.value === '' && tags.length) {
+      removeTag(tags[tags.length - 1]);
+    }
+  });
+
+  input.addEventListener('blur', (event) => {
+    if (disabled) return;
+    if (event.relatedTarget && (root.contains(event.relatedTarget) || (suggest && suggest.contains(event.relatedTarget)))) {
+      return;
+    }
+    if (input.value.trim()) {
+      addTags(input.value);
+      input.value = '';
+    }
+    suggestOpen = false;
+    render();
+  });
+
+  input.addEventListener('focus', () => {
+    if (disabled) return;
+    suggestOpen = true;
+    updateSuggestions();
+  });
+
+  input.addEventListener('input', () => {
+    if (disabled) return;
+    updateSuggestions();
+  });
+
+  chips.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-tag]');
+    if (!button || disabled) return;
+    removeTag(button.dataset.tag);
+  });
+
+  root.addEventListener('click', (event) => {
+    if (disabled) return;
+    if (event.target.closest('.tag-remove')) return;
+    if (event.target.closest('.tags-suggest-item')) return;
+    input.focus();
+  });
+
+  if (suggest) {
+    ensureSuggestMounted();
+    suggest.addEventListener('mousedown', (event) => {
+      const button = event.target.closest('button[data-tag]');
+      if (!button || disabled) return;
+      event.preventDefault();
+      addTags(button.dataset.tag);
+      input.value = '';
+      input.focus();
+      updateSuggestions();
+    });
+  }
+
+  document.addEventListener('click', (event) => {
+    if (!root.contains(event.target) && !(suggest && suggest.contains(event.target))) {
+      suggestOpen = false;
+      render();
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    if (suggestOpen) positionSuggest();
+  });
+
+  window.addEventListener('scroll', () => {
+    if (suggestOpen) positionSuggest();
+  }, true);
+
+  render();
+
+  return {
+    getTags: () => tags.slice(),
+    setTags: (list) => {
+      tags = Array.from(new Set((list || []).map(normalize).filter(Boolean)));
+      render();
+    },
+    setSuggestions: (list) => {
+      suggestions = Array.from(new Set((list || []).map(normalize).filter(Boolean)));
+      updateSuggestions();
+    },
+    setDisabled: (value) => {
+      disabled = Boolean(value);
+      root.classList.toggle('is-disabled', disabled);
+      input.disabled = disabled;
+      suggestOpen = !disabled && document.activeElement === input;
+      render();
+    },
+  };
+}
+
+window.createTagsInput = createTagsInput;
 
 function ensureProfileModal() {
   if (document.getElementById('profile-modal')) return;

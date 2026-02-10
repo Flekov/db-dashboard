@@ -138,7 +138,6 @@ async function loadBackups(projectId = currentProjectId) {
       <div>Project</div>
       <div>Type</div>
       <div>Version</div>
-      <div>Location</div>
       <div>Actions</div>
     </div>
   `;
@@ -159,11 +158,10 @@ async function loadBackups(projectId = currentProjectId) {
     return `
       <div class="table-row">
         <div>${item.id}</div>
-        <div>${escapeHtml(item.project_name || projectNameById[item.project_id] || '-')}</div>
-        <div>${item.backup_type}</div>
-        <div>${item.version_label || '-'}</div>
-        <div>${item.location || '-'}</div>
-        <div class="row-actions">
+      <div>${escapeHtml(item.project_name || projectNameById[item.project_id] || '-')}</div>
+      <div>${item.backup_type}</div>
+      <div>${item.version_label || '-'}</div>
+      <div class="row-actions">
           <button class="btn ghost icon-btn" data-action="view" data-row="${encoded}" title="View" aria-label="View"><img src="${window.iconPaths?.view || ''}" alt="View" /></button>
           <button class="btn icon-btn" data-action="edit" data-row="${encoded}" title="Edit" aria-label="Edit"><img src="${window.iconPaths?.edit || ''}" alt="Edit" /></button>
           <button class="btn danger icon-btn" data-action="delete" data-row="${encoded}" title="Delete" aria-label="Delete"><img src="${window.iconPaths?.delete || ''}" alt="Delete" /></button>
@@ -295,6 +293,11 @@ backupForm.addEventListener('submit', async (event) => {
     await loadBackups(projectId);
     if (window.showToast) window.showToast('Backup saved');
   } catch (err) {
-    alert(err.message);
+    if (window.showToast) {
+      const message = /path/i.test(err.message || '') ? 'Path not found' : (err.message || 'Backup failed');
+      window.showToast(message, 'error');
+    } else {
+      alert(err.message);
+    }
   }
 });

@@ -76,7 +76,7 @@ final class ServerController
             Response::json(['error' => 'Project not found'], 404);
         }
 
-        $stmt = $pdo->prepare('INSERT INTO servers (project_id, name, host, port, type, version, root_user, created_at) VALUES (:project_id, :name, :host, :port, :type, :version, :root_user, :created_at)');
+        $stmt = $pdo->prepare('INSERT INTO servers (project_id, name, host, port, type, version, db_user, db_pass, charset, created_at) VALUES (:project_id, :name, :host, :port, :type, :version, :db_user, :db_pass, :charset, :created_at)');
         $stmt->execute([
             ':project_id' => $projectId,
             ':name' => trim($data['name']),
@@ -84,7 +84,9 @@ final class ServerController
             ':port' => (int) ($data['port'] ?? 3306),
             ':type' => trim($data['type']),
             ':version' => trim($data['version'] ?? ''),
-            ':root_user' => trim($data['root_user'] ?? ''),
+            ':db_user' => trim($data['db_user'] ?? ''),
+            ':db_pass' => trim($data['db_pass'] ?? ''),
+            ':charset' => trim($data['charset'] ?? ''),
             ':created_at' => date('c'),
         ]);
 
@@ -114,14 +116,16 @@ final class ServerController
             }
         }
 
-        $stmt = $pdo->prepare('UPDATE servers SET name = :name, host = :host, port = :port, type = :type, version = :version, root_user = :root_user' . ($projectId > 0 ? ', project_id = :project_id' : '') . ' WHERE id = :id');
+        $stmt = $pdo->prepare('UPDATE servers SET name = :name, host = :host, port = :port, type = :type, version = :version, db_user = :db_user, db_pass = :db_pass, charset = :charset' . ($projectId > 0 ? ', project_id = :project_id' : '') . ' WHERE id = :id');
         $params = [
             ':name' => trim($data['name']),
             ':host' => trim($data['host']),
             ':port' => (int) ($data['port'] ?? 3306),
             ':type' => trim($data['type']),
             ':version' => trim($data['version'] ?? ''),
-            ':root_user' => trim($data['root_user'] ?? ''),
+            ':db_user' => trim($data['db_user'] ?? ''),
+            ':db_pass' => trim($data['db_pass'] ?? ''),
+            ':charset' => trim($data['charset'] ?? ''),
             ':id' => $id,
         ];
         if ($projectId > 0) {

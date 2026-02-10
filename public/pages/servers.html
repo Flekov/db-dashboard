@@ -32,21 +32,19 @@
         <section class="panel two-col">
           <div>
             <h2>New DB server</h2>
-            <form id="server-form" class="stack">
+            <form id="server-form" class="stack half-width">
               <label>Project</label>
               <select name="project_id" id="server-project-select" required></select>
-              <input type="text" name="name" placeholder="Name" required />
+              <input type="text" name="name" placeholder="DB name" required />
               <input type="text" name="host" placeholder="Host" required />
               <input type="number" name="port" placeholder="Port" value="3306" />
               <input type="text" name="type" placeholder="Type (mysql)" required />
               <input type="text" name="version" placeholder="Version" />
-              <input type="text" name="root_user" placeholder="Root user" />
-              <button type="submit" class="btn">Save</button>
+              <input type="text" name="db_user" placeholder="User" />
+              <input type="text" name="db_pass" placeholder="Password" />
+              <input type="text" name="charset" placeholder="Charset (utf8mb4)" />
+              <button type="submit" class="btn">Create</button>
             </form>
-          </div>
-          <div>
-            <h2>Notes</h2>
-            <p class="muted">Use this section to record root credentials and active instances for running scripts.</p>
           </div>
         </section>
         <section class="panel">

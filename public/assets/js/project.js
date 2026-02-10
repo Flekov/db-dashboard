@@ -1,6 +1,7 @@
 const projectForm = document.getElementById('project-form');
 const projectTitle = document.getElementById('project-title');
 const ownerSelect = document.getElementById('owner-select');
+const tagsRoot = document.getElementById('project-tags');
 const switchModeBtn = document.getElementById('switch-mode');
 const backBtn = document.getElementById('back-to-projects');
 const deleteProjectBtn = document.getElementById('delete-project');
@@ -33,6 +34,29 @@ let templates = [];
 let servers = [];
 let backups = [];
 let currentProject = null;
+let tagItems = [];
+let tagsInput = null;
+
+function downloadServerJson(item) {
+  const payload = {
+    host: item.host || '',
+    port: Number(item.port) || 3306,
+    name: item.name || '',
+    user: item.db_user || '',
+    pass: item.db_pass || '',
+    charset: item.charset || '',
+  };
+  const fileBase = String(item.name || 'server').replace(/[^A-Za-z0-9-_]/g, '_');
+  const fileName = `${fileBase || 'server'}_${item.id || 'export'}.json`;
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(link.href);
+}
 
 const itemFields = {
   template: [
@@ -44,12 +68,14 @@ const itemFields = {
     { name: 'body_json', label: 'Body JSON', type: 'textarea' },
   ],
   server: [
-    { name: 'name', label: 'Name' },
+    { name: 'name', label: 'DB name' },
     { name: 'host', label: 'Host' },
     { name: 'port', label: 'Port' },
     { name: 'type', label: 'Type' },
     { name: 'version', label: 'Version' },
-    { name: 'root_user', label: 'Root user' },
+    { name: 'db_user', label: 'User' },
+    { name: 'db_pass', label: 'Password' },
+    { name: 'charset', label: 'Charset' },
   ],
   backup: [
     { name: 'backup_type', label: 'Type' },
@@ -83,6 +109,9 @@ function setMode(nextMode) {
       el.disabled = !isEdit;
     }
   });
+  if (tagsInput) {
+    tagsInput.setDisabled(!isEdit);
+  }
   saveBtn.classList.toggle('hidden', !isEdit);
   addParticipantForm.classList.toggle('hidden', !isEdit);
   newTemplateBtn.classList.toggle('hidden', !isEdit);
@@ -202,7 +231,9 @@ function openItemModal(type, mode, item = {}) {
           port: Number(payload.port) || 3306,
           type: payload.type,
           version: payload.version,
-          root_user: payload.root_user,
+          db_user: payload.db_user,
+          db_pass: payload.db_pass,
+          charset: payload.charset,
         };
         if (item.id) {
           await apiRequest(`/servers/${item.id}`, { method: 'PUT', body: JSON.stringify(serverPayload) });
@@ -227,7 +258,12 @@ function openItemModal(type, mode, item = {}) {
       }
       closeItemModal();
     } catch (err) {
-      alert(err.message);
+      if (window.showToast) {
+        const message = /path/i.test(err.message || '') ? 'Path not found' : (err.message || 'Backup failed');
+        window.showToast(message, 'error');
+      } else {
+        alert(err.message);
+      }
     }
   };
 }
@@ -245,6 +281,14 @@ async function loadUsers() {
   users = data.items || [];
   const ownerOptions = users.map((user) => `<option value="${escapeHtml(user.email)}">${escapeHtml(user.name)}</option>`).join('');
   ownerSelect.innerHTML = ownerOptions;
+}
+
+async function loadTags() {
+  const data = await apiRequest('/tags').catch(() => ({ items: [] }));
+  tagItems = data.items || [];
+  if (tagsInput) {
+    tagsInput.setSuggestions(tagItems.map((tag) => tag.name));
+  }
 }
 
 function renderParticipants() {
@@ -305,10 +349,10 @@ function renderServers() {
   const showActions = mode === 'edit';
   const header = `
     <div class="table-row table-header">
-      <div>Name</div>
+      <div>DB name</div>
       <div>Host</div>
-      <div>Type</div>
-      <div>Version</div>
+      <div>User</div>
+      <div>Charset</div>
       <div>Actions</div>
     </div>
   `;
@@ -316,11 +360,12 @@ function renderServers() {
     <div class="table-row">
       <div>${escapeHtml(item.name)}</div>
       <div>${escapeHtml(item.host)}:${escapeHtml(item.port)}</div>
-      <div>${escapeHtml(item.type)}</div>
-      <div>${escapeHtml(item.version || '-')}</div>
+      <div>${escapeHtml(item.db_user || '-')}</div>
+      <div>${escapeHtml(item.charset || '-')}</div>
       <div class="row-actions">
         <button class="btn ghost icon-btn" data-action="view" data-type="server" data-id="${item.id}" title="View" aria-label="View"><img src="${window.iconPaths?.view || ''}" alt="View" /></button>
         ${showActions ? `<button class="btn icon-btn" data-action="edit" data-type="server" data-id="${item.id}" title="Edit" aria-label="Edit"><img src="${window.iconPaths?.edit || ''}" alt="Edit" /></button>` : ''}
+        <button class="btn ghost icon-btn" data-action="export" data-type="server" data-id="${item.id}" title="Export JSON" aria-label="Export JSON"><img src="${window.iconPaths?.download || ''}" alt="Export JSON" /></button>
         ${showActions ? `<button class="btn danger icon-btn" data-action="delete" data-type="server" data-id="${item.id}" title="Delete" aria-label="Delete"><img src="${window.iconPaths?.delete || ''}" alt="Delete" /></button>` : ''}
       </div>
     </div>
@@ -335,18 +380,18 @@ function renderBackups() {
   const showActions = mode === 'edit';
   const header = `
     <div class="table-row table-header">
+      <div>ID</div>
       <div>Type</div>
       <div>Version</div>
-      <div>Location</div>
       <div>Created</div>
       <div>Actions</div>
     </div>
   `;
   const rows = backups.map((item) => `
     <div class="table-row">
+      <div>${escapeHtml(item.id)}</div>
       <div>${escapeHtml(item.backup_type)}</div>
       <div>${escapeHtml(item.version_label || '-')}</div>
-      <div>${escapeHtml(item.location || '-')}</div>
       <div>${escapeHtml(item.created_at || '-')}</div>
       <div class="row-actions">
         <button class="btn ghost icon-btn" data-action="view" data-type="backup" data-id="${item.id}" title="View" aria-label="View"><img src="${window.iconPaths?.view || ''}" alt="View" /></button>
@@ -406,6 +451,9 @@ async function loadProject() {
   projectForm.type.value = currentProject.type || '';
   projectForm.status.value = currentProject.status || '';
   ownerSelect.value = currentProject.owner_email || '';
+  if (tagsInput && Array.isArray(currentProject.tags)) {
+    tagsInput.setTags(currentProject.tags);
+  }
 }
 
 projectForm.addEventListener('submit', async (event) => {
@@ -419,6 +467,7 @@ projectForm.addEventListener('submit', async (event) => {
     type: projectForm.type.value.trim(),
     status: projectForm.status.value.trim() || 'active',
     owner_email: ownerSelect.value,
+    tags: tagsInput ? tagsInput.getTags() : [],
   };
   try {
     await apiRequest(`/projects/${projectId}`, {
@@ -531,6 +580,10 @@ async function handleTableAction(event, type) {
   const collection = type === 'template' ? templates : type === 'server' ? servers : backups;
   const item = collection.find((row) => Number(row.id) === itemId);
   if (!item) return;
+  if (action === 'export' && type === 'server') {
+    downloadServerJson(item);
+    return;
+  }
   openItemModal(type, action === 'edit' ? 'edit' : 'view', item);
 }
 
@@ -546,7 +599,9 @@ async function init() {
     return;
   }
   setMode(params.mode);
+  tagsInput = window.createTagsInput ? window.createTagsInput(tagsRoot) : null;
   await loadUsers();
+  await loadTags();
   await loadProject();
   await loadParticipants();
   await loadTemplate();

@@ -1,5 +1,7 @@
 const adminPanel = document.getElementById('admin-panel');
 const exportUsersBtn = document.getElementById('export-users');
+const tagsTable = document.getElementById('tags-table');
+const tagForm = document.getElementById('tag-form');
 const modal = document.getElementById('modal');
 const modalTitle = document.getElementById('modal-title');
 const modalForm = document.getElementById('modal-form');
@@ -19,6 +21,13 @@ const userFields = [
 ];
 
 let userItems = [];
+let tagItems = [];
+let modalType = 'user';
+
+const tagFields = [
+  { name: 'id', label: 'ID', readOnly: true },
+  { name: 'name', label: 'Name' },
+];
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -59,9 +68,12 @@ function renderForm(fields, item, mode) {
   }).join('');
 }
 
-function openModal(mode, item) {
-  modalTitle.textContent = mode === 'view' ? 'View user' : 'Edit user';
-  renderForm(userFields, item, mode);
+function openModal(type, mode, item) {
+  modalType = type;
+  const title = type === 'tag' ? 'tag' : 'user';
+  modalTitle.textContent = mode === 'view' ? `View ${title}` : `Edit ${title}`;
+  const fields = type === 'tag' ? tagFields : userFields;
+  renderForm(fields, item, mode);
   modal.classList.remove('hidden');
 
   modalForm.onsubmit = async (event) => {
@@ -69,19 +81,29 @@ function openModal(mode, item) {
     if (mode === 'view') return;
 
     const payload = {};
-    userFields.forEach((field) => {
+    const activeFields = modalType === 'tag' ? tagFields : userFields;
+    activeFields.forEach((field) => {
       if (field.readOnly) return;
       payload[field.name] = modalForm.elements[field.name].value.trim();
     });
 
     try {
-      await apiRequest(`/users/${item.id}`, {
-        method: 'PUT',
-        body: JSON.stringify(payload),
-      });
+      if (modalType === 'tag') {
+        await apiRequest(`/tags/${item.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        });
+        await loadTags();
+        if (window.showToast) window.showToast('Tag saved');
+      } else {
+        await apiRequest(`/users/${item.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        });
+        await loadAdmin();
+        if (window.showToast) window.showToast('User saved');
+      }
       closeModal();
-      await loadAdmin();
-      if (window.showToast) window.showToast('User saved');
     } catch (err) {
       alert(err.message);
     }
@@ -141,6 +163,9 @@ async function loadAdmin() {
     const me = await apiRequest('/auth/me');
     if (me.role !== 'admin') {
       adminPanel.innerHTML = '<div class="table-row table-empty"><div>Admin access required.</div></div>';
+      if (tagsTable) {
+        tagsTable.innerHTML = '<div class="table-row table-empty"><div>Admin access required.</div></div>';
+      }
       return;
     }
     const data = await apiRequest('/users');
@@ -195,6 +220,47 @@ async function loadAdmin() {
   }
 }
 
+async function loadTags() {
+  if (!tagsTable) return;
+  try {
+    const me = await apiRequest('/auth/me');
+    if (me.role !== 'admin') {
+      tagsTable.innerHTML = '<div class="table-row table-empty"><div>Admin access required.</div></div>';
+      return;
+    }
+    const data = await apiRequest('/tags');
+    tagItems = data.items || [];
+    const header = `
+      <div class="table-row table-header">
+        <div>ID</div>
+        <div>Name</div>
+        <div>Actions</div>
+      </div>
+    `;
+    const rows = tagItems.map((item) => {
+      const encoded = encodeURIComponent(JSON.stringify(item));
+      return `
+        <div class="table-row">
+          <div>${item.id}</div>
+          <div>${escapeHtml(item.name)}</div>
+          <div class="row-actions">
+            <button class="btn ghost icon-btn" data-action="view" data-type="tag" data-row="${encoded}" title="View" aria-label="View"><img src="${window.iconPaths?.view || ''}" alt="View" /></button>
+            <button class="btn icon-btn" data-action="edit" data-type="tag" data-row="${encoded}" title="Edit" aria-label="Edit"><img src="${window.iconPaths?.edit || ''}" alt="Edit" /></button>
+            <button class="btn danger icon-btn" data-action="delete" data-type="tag" data-row="${encoded}" title="Delete" aria-label="Delete"><img src="${window.iconPaths?.delete || ''}" alt="Delete" /></button>
+          </div>
+        </div>
+      `;
+    }).join('');
+    const empty = tagItems.length
+      ? ''
+      : '<div class="table-row table-empty"><div>No tags found.</div></div>';
+    tagsTable.innerHTML = header + rows + empty;
+  } catch (err) {
+    tagsTable.innerHTML = '<div class="table-row table-empty"><div>No data</div></div>';
+    tagItems = [];
+  }
+}
+
 if (exportUsersBtn) {
   exportUsersBtn.addEventListener('click', () => {
     if (!window.exportToCsv) return;
@@ -225,7 +291,49 @@ adminPanel.addEventListener('click', async (event) => {
     return;
   }
 
-  openModal(button.dataset.action, item);
+  openModal('user', button.dataset.action, item);
 });
 
+if (tagsTable) {
+  tagsTable.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    const item = JSON.parse(decodeURIComponent(button.dataset.row));
+
+    if (button.dataset.action === 'delete') {
+      const ok = await confirmDelete(`Delete tag "${item.name}"?`);
+      if (!ok) return;
+      try {
+        await apiRequest(`/tags/${item.id}`, { method: 'DELETE' });
+        await loadTags();
+      } catch (err) {
+        alert(err.message);
+      }
+      return;
+    }
+
+    openModal('tag', button.dataset.action, item);
+  });
+}
+
+if (tagForm) {
+  tagForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const name = tagForm.name.value.trim();
+    if (!name) return;
+    try {
+      await apiRequest('/tags', {
+        method: 'POST',
+        body: JSON.stringify({ name }),
+      });
+      tagForm.reset();
+      await loadTags();
+      if (window.showToast) window.showToast('Tag created');
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+}
+
 loadAdmin();
+loadTags();

@@ -21,6 +21,25 @@ final class ProjectController
         }
         $items = $stmt->fetchAll();
         $items = $this->attachParticipants($pdo, $items);
+        $items = $this->attachTags($pdo, $items);
+
+        $tagFilter = trim((string) ($_GET['tags'] ?? ''));
+        if ($tagFilter !== '') {
+            $required = array_values(array_filter(array_map(function (string $tag) {
+                return strtolower(trim($tag));
+            }, explode(',', $tagFilter))));
+            if ($required) {
+                $items = array_values(array_filter($items, function (array $item) use ($required) {
+                    $tags = array_map('strtolower', $item['tags'] ?? []);
+                    foreach ($required as $tag) {
+                        if (!in_array($tag, $tags, true)) {
+                            return false;
+                        }
+                    }
+                    return true;
+                }));
+            }
+        }
         Response::json(['items' => $items]);
     }
 
@@ -44,6 +63,7 @@ final class ProjectController
             Response::json(['error' => 'Forbidden'], 403);
         }
         $items = $this->attachParticipants($pdo, [$item]);
+        $items = $this->attachTags($pdo, $items);
         $item = $items[0] ?? $item;
         Response::json(['item' => $item]);
     }
@@ -86,6 +106,9 @@ final class ProjectController
         if (is_array($participants)) {
             $this->replaceParticipants($pdo, $projectId, $participants);
         }
+        if (array_key_exists('tags', $data) && is_array($data['tags'])) {
+            $this->replaceTags($pdo, $projectId, $data['tags']);
+        }
 
         Response::json(['id' => $projectId], 201);
     }
@@ -95,7 +118,10 @@ final class ProjectController
         $auth = new AuthService();
         $current = $auth->requireUser();
         $data = json_decode(file_get_contents('php://input'), true) ?? [];
-        $items = $data['items'] ?? [];
+        $items = $data;
+        if (isset($data['items'])) {
+            $items = $data['items'];
+        }
 
         if (!is_array($items)) {
             Response::json(['error' => 'Invalid payload'], 422);
@@ -109,11 +135,26 @@ final class ProjectController
                 continue;
             }
 
-            $ownerEmail = trim((string) ($item['owner_email'] ?? $item['owner'] ?? ''));
+            $ownerPayload = $item['owner'] ?? null;
+            $ownerEmail = '';
+            $ownerName = '';
+            $ownerFaculty = null;
+            if (is_array($ownerPayload)) {
+                $ownerEmail = trim((string) ($ownerPayload['email'] ?? ''));
+                $ownerName = trim((string) ($ownerPayload['name'] ?? ''));
+                $ownerFaculty = $ownerPayload['faculty_number'] ?? null;
+            } else {
+                $ownerEmail = trim((string) ($item['owner_email'] ?? $item['owner'] ?? ''));
+            }
+
             if ($ownerEmail === '') {
                 $ownerId = (int) $current['id'];
             } else {
-                $ownerId = $this->findOrCreateUserByEmail($pdo, $ownerEmail, $auth);
+                $ownerId = $this->findOrCreateUserForImport($pdo, [
+                    'name' => $ownerName,
+                    'email' => $ownerEmail,
+                    'faculty_number' => $ownerFaculty,
+                ], $auth);
             }
 
             $stmt = $pdo->prepare('INSERT INTO projects (code, name, short_name, version, type, status, owner_id, created_at) VALUES (:code, :name, :short_name, :version, :type, :status, :owner_id, :created_at)');
@@ -131,7 +172,10 @@ final class ProjectController
             $projectId = (int) $pdo->lastInsertId();
             $participants = $item['participants'] ?? [];
             if (is_array($participants)) {
-                $this->replaceParticipants($pdo, $projectId, $participants, true, $auth);
+                $this->replaceParticipantsForImport($pdo, $projectId, $participants, $auth);
+            }
+            if (array_key_exists('tags', $item) && is_array($item['tags'])) {
+                $this->replaceTags($pdo, $projectId, $item['tags']);
             }
         }
 
@@ -193,6 +237,9 @@ final class ProjectController
 
         if (array_key_exists('participants', $data) && is_array($data['participants'])) {
             $this->replaceParticipants($pdo, $id, $data['participants']);
+        }
+        if (array_key_exists('tags', $data) && is_array($data['tags'])) {
+            $this->replaceTags($pdo, $id, $data['tags']);
         }
 
         Response::json(['ok' => true]);
@@ -377,6 +424,28 @@ final class ProjectController
         }, $items);
     }
 
+    private function attachTags(\PDO $pdo, array $items): array
+    {
+        if (!$items) {
+            return $items;
+        }
+        $ids = array_map(function (array $item) {
+            return (int) $item['id'];
+        }, $items);
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $pdo->prepare('SELECT pt.project_id, t.name FROM project_tags pt JOIN tags t ON t.id = pt.tag_id WHERE pt.project_id IN (' . $placeholders . ') ORDER BY t.name ASC');
+        $stmt->execute($ids);
+        $rows = $stmt->fetchAll();
+        $map = [];
+        foreach ($rows as $row) {
+            $map[$row['project_id']][] = $row['name'];
+        }
+        return array_map(function (array $item) use ($map) {
+            $item['tags'] = $map[$item['id']] ?? [];
+            return $item;
+        }, $items);
+    }
+
     private function canAccessProject(\PDO $pdo, int $projectId, int $userId): bool
     {
         $stmt = $pdo->prepare('SELECT id FROM projects WHERE id = :id AND owner_id = :user_id');
@@ -456,6 +525,122 @@ final class ProjectController
         $auth->ensureRole($pdo, $userId, 'user');
 
         return $userId;
+    }
+
+    private function findUserIdByEmailAndName(\PDO $pdo, string $email, string $name): ?int
+    {
+        $stmt = $pdo->prepare('SELECT id FROM users WHERE email = :email AND name = :name');
+        $stmt->execute([':email' => $email, ':name' => $name]);
+        $row = $stmt->fetch();
+        return $row ? (int) $row['id'] : null;
+    }
+
+    private function findOrCreateUserForImport(\PDO $pdo, array $payload, AuthService $auth): int
+    {
+        $email = trim((string) ($payload['email'] ?? ''));
+        $name = trim((string) ($payload['name'] ?? ''));
+        $facultyNumber = $payload['faculty_number'] ?? null;
+
+        if ($email !== '' && $name !== '') {
+            $existing = $this->findUserIdByEmailAndName($pdo, $email, $name);
+            if ($existing) {
+                return $existing;
+            }
+        }
+
+        if ($email === '') {
+            $email = 'user_' . uniqid() . '@example.com';
+        }
+        if ($name === '') {
+            $name = 'user';
+        }
+
+        $password = $name . '_password';
+        $hash = password_hash($password, PASSWORD_DEFAULT);
+
+        $stmt = $pdo->prepare('INSERT INTO users (name, email, faculty_number, password_hash, created_at) VALUES (:name, :email, :faculty_number, :hash, :created_at)');
+        $stmt->execute([
+            ':name' => $name,
+            ':email' => $email,
+            ':faculty_number' => $facultyNumber,
+            ':hash' => $hash,
+            ':created_at' => date('c'),
+        ]);
+
+        $userId = (int) $pdo->lastInsertId();
+        $auth->ensureRole($pdo, $userId, 'user');
+
+        return $userId;
+    }
+
+    private function replaceParticipantsForImport(\PDO $pdo, int $projectId, array $participants, AuthService $auth): void
+    {
+        $stmt = $pdo->prepare('DELETE FROM project_participants WHERE project_id = :project_id');
+        $stmt->execute([':project_id' => $projectId]);
+
+        foreach ($participants as $participant) {
+            if (is_array($participant)) {
+                $userId = $this->findOrCreateUserForImport($pdo, $participant, $auth);
+            } else {
+                $email = trim((string) $participant);
+                if ($email === '') {
+                    continue;
+                }
+                $userId = $this->findOrCreateUserByEmail($pdo, $email, $auth);
+            }
+
+            $stmt = $pdo->prepare('INSERT INTO project_participants (project_id, user_id) VALUES (:project_id, :user_id)');
+            $stmt->execute([
+                ':project_id' => $projectId,
+                ':user_id' => $userId,
+            ]);
+        }
+    }
+
+    private function replaceTags(\PDO $pdo, int $projectId, array $tags): void
+    {
+        $stmt = $pdo->prepare('DELETE FROM project_tags WHERE project_id = :project_id');
+        $stmt->execute([':project_id' => $projectId]);
+
+        $names = array_values(array_filter(array_map(function ($tag) {
+            if (is_array($tag)) {
+                return trim((string) ($tag['name'] ?? ''));
+            }
+            return trim((string) $tag);
+        }, $tags)));
+
+        if (!$names) {
+            return;
+        }
+
+        foreach ($names as $name) {
+            $tagId = $this->findOrCreateTag($pdo, $name);
+            if ($tagId <= 0) {
+                continue;
+            }
+            $stmt = $pdo->prepare('INSERT IGNORE INTO project_tags (project_id, tag_id) VALUES (:project_id, :tag_id)');
+            $stmt->execute([
+                ':project_id' => $projectId,
+                ':tag_id' => $tagId,
+            ]);
+        }
+    }
+
+    private function findOrCreateTag(\PDO $pdo, string $name): int
+    {
+        $name = trim($name);
+        if ($name === '') {
+            return 0;
+        }
+        $stmt = $pdo->prepare('SELECT id FROM tags WHERE name = :name');
+        $stmt->execute([':name' => $name]);
+        $row = $stmt->fetch();
+        if ($row) {
+            return (int) $row['id'];
+        }
+        $stmt = $pdo->prepare('INSERT INTO tags (name) VALUES (:name)');
+        $stmt->execute([':name' => $name]);
+        return (int) $pdo->lastInsertId();
     }
 
     private function getProjectOwner(\PDO $pdo, int $projectId): ?array

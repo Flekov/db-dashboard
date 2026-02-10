@@ -1,8 +1,36 @@
 const projectsTable = document.getElementById('projects-table');
 const exportProjectsBtn = document.getElementById('export-projects');
+const tagsRoot = document.getElementById('project-tags');
+const filterForm = document.getElementById('projects-filter-form');
+const filterTagsRoot = document.getElementById('projects-filter-tags');
 let projectItems = [];
-async function loadProjects() {
-  const data = await apiRequest('/projects');
+let tagItems = [];
+let tagsInput = null;
+let filterTagsInput = null;
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderTags() {
+  if (tagsInput) tagsInput.setSuggestions(tagItems.map((tag) => tag.name));
+  if (filterTagsInput) filterTagsInput.setSuggestions(tagItems.map((tag) => tag.name));
+}
+
+async function loadTags() {
+  const data = await apiRequest('/tags').catch(() => ({ items: [] }));
+  tagItems = data.items || [];
+  renderTags();
+}
+
+async function loadProjects(tags = []) {
+  const query = tags.length ? `?tags=${encodeURIComponent(tags.join(','))}` : '';
+  const data = await apiRequest(`/projects${query}`);
   projectItems = data.items || [];
   if (exportProjectsBtn) {
     exportProjectsBtn.classList.toggle('hidden', projectItems.length === 0);
@@ -55,6 +83,7 @@ if (exportProjectsBtn) {
       { key: 'owner_faculty_number', label: 'Owner faculty number' },
       { key: 'created_at', label: 'Created at' },
       { label: 'Participants', get: (row) => (row.participants_labels || []).join(', ') },
+      { label: 'Tags', get: (row) => (row.tags || []).join(', ') },
     ], projectItems);
   });
 }
@@ -80,7 +109,9 @@ projectsTable.addEventListener('click', async (event) => {
   window.location.href = `project.html?id=${item.id}&mode=${mode}`;
 });
 
-loadProjects();
+tagsInput = window.createTagsInput ? window.createTagsInput(tagsRoot) : null;
+filterTagsInput = window.createTagsInput ? window.createTagsInput(filterTagsRoot) : null;
+Promise.all([loadTags(), loadProjects()]);
 
 const projectForm = document.getElementById('project-form');
 projectForm.addEventListener('submit', async (event) => {
@@ -92,6 +123,7 @@ projectForm.addEventListener('submit', async (event) => {
     short_name: form.short_name.value.trim(),
     version: form.version.value.trim(),
     type: form.type.value.trim(),
+    tags: tagsInput ? tagsInput.getTags() : [],
   };
 
   try {
@@ -124,3 +156,10 @@ bulkBtn.addEventListener('click', async () => {
     alert(err.message || 'Invalid JSON');
   }
 });
+
+if (filterForm) {
+  filterForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    await loadProjects(filterTagsInput ? filterTagsInput.getTags() : []);
+  });
+}

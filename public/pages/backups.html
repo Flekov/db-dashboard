@@ -32,18 +32,14 @@
         <section class="panel two-col">
           <div>
             <h2>New backup</h2>
-            <form id="backup-form" class="stack">
+            <form id="backup-form" class="stack half-width">
               <label>Project</label>
               <select name="project_id" id="backup-project-select" required></select>
               <input type="text" name="backup_type" placeholder="Type (sql/code/data)" required />
               <input type="text" name="location" placeholder="Path" />
               <input type="text" name="version_label" placeholder="Version" />
-              <button type="submit" class="btn">Save</button>
+              <button type="submit" class="btn">Create</button>
             </form>
-          </div>
-          <div>
-            <h2>Restore</h2>
-            <p class="muted">Automated restore by version will be added here.</p>
           </div>
         </section>
         <section class="panel">

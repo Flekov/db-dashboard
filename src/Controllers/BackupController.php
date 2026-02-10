@@ -70,11 +70,69 @@ final class BackupController
         }
 
         $pdo = Connection::get();
+        $stmt = $pdo->prepare('SELECT id, code, name FROM projects WHERE id = :id');
+        $stmt->execute([':id' => $projectId]);
+        $project = $stmt->fetch();
+        if (!$project) {
+            Response::json(['error' => 'Project not found'], 404);
+        }
+
+        $basePath = trim((string) ($data['location'] ?? ''));
+        if ($basePath === '') {
+            Response::json(['error' => 'Backup path is required'], 422);
+        }
+        if (!is_dir($basePath)) {
+            Response::json(['error' => 'Backup path does not exist'], 422);
+        }
+
+        $safeBase = rtrim($basePath, "\\/ \t\n\r\0\x0B");
+        $projectLabel = (string) ($project['name'] ?? '');
+        if ($projectLabel === '') {
+            $projectLabel = (string) ($project['code'] ?? '');
+        }
+        if ($projectLabel === '') {
+            $projectLabel = 'project_' . $projectId;
+        }
+        $projectLabel = preg_replace('/[^A-Za-z0-9-_]/', '_', $projectLabel);
+        $timestamp = date('Ymd_His');
+        $versionLabel = trim((string) ($data['version_label'] ?? ''));
+        if ($versionLabel === '') {
+            $versionLabel = $timestamp;
+        }
+        $versionLabel = preg_replace('/[^A-Za-z0-9-_]/', '_', $versionLabel);
+        $backupDir = $safeBase . DIRECTORY_SEPARATOR . $projectLabel . '_' . $versionLabel;
+        if (!is_dir($backupDir) && !mkdir($backupDir, 0775, true)) {
+            Response::json(['error' => 'Unable to create backup directory'], 500);
+        }
+
+        $stmt = $pdo->prepare('SELECT name, body_json FROM templates WHERE project_id = :project_id');
+        $stmt->execute([':project_id' => $projectId]);
+        $templates = $stmt->fetchAll();
+        foreach ($templates as $row) {
+            $templateName = trim((string) ($row['name'] ?? 'template'));
+            if ($templateName === '') {
+                $templateName = 'template';
+            }
+            $templateName = preg_replace('/[^A-Za-z0-9-_]/', '_', $templateName);
+
+            $body = json_decode((string) ($row['body_json'] ?? ''), true);
+            if (!is_array($body)) {
+                $body = [];
+            }
+
+            $fileName = $templateName . '_' . $versionLabel . '.json';
+            $filePath = $backupDir . DIRECTORY_SEPARATOR . $fileName;
+            $json = json_encode($body, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+            if ($json === false || file_put_contents($filePath, $json) === false) {
+                Response::json(['error' => 'Failed to write templates backup'], 500);
+            }
+        }
+
         $stmt = $pdo->prepare('INSERT INTO backups (project_id, backup_type, location, version_label, created_at) VALUES (:project_id, :backup_type, :location, :version_label, :created_at)');
         $stmt->execute([
             ':project_id' => $projectId,
             ':backup_type' => trim($data['backup_type']),
-            ':location' => trim($data['location'] ?? ''),
+            ':location' => $backupDir,
             ':version_label' => trim($data['version_label'] ?? ''),
             ':created_at' => date('c'),
         ]);

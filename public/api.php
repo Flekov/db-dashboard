@@ -11,6 +11,7 @@ use App\Controllers\ActionController;
 use App\Controllers\BackupController;
 use App\Controllers\VhostController;
 use App\Controllers\UserController;
+use App\Controllers\TagController;
 
 $router = new Router();
 
@@ -54,6 +55,10 @@ $router->add('POST', '/vhosts', [VhostController::class, 'create']);
 $router->add('PUT', '/users/{id}', [UserController::class, 'update']);
 $router->add('DELETE', '/users/{id}', [UserController::class, 'delete']);
 $router->add('GET', '/users', [UserController::class, 'list']);
+$router->add('GET', '/tags', [TagController::class, 'list']);
+$router->add('POST', '/tags', [TagController::class, 'create']);
+$router->add('PUT', '/tags/{id}', [TagController::class, 'update']);
+$router->add('DELETE', '/tags/{id}', [TagController::class, 'delete']);
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $path = $_SERVER['PATH_INFO'] ?? '/';

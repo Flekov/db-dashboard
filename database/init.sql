@@ -5,9 +5,9 @@ CREATE DATABASE IF NOT EXISTS db_dashboard
 USE db_dashboard;
 
 SET FOREIGN_KEY_CHECKS = 0;
-DROP TABLE IF EXISTS vhosts;
 DROP TABLE IF EXISTS backups;
-DROP TABLE IF EXISTS actions;
+DROP TABLE IF EXISTS project_tags;
+DROP TABLE IF EXISTS tags;
 DROP TABLE IF EXISTS project_participants;
 DROP TABLE IF EXISTS templates;
 DROP TABLE IF EXISTS servers;
@@ -82,9 +82,25 @@ CREATE TABLE servers (
   port INT NOT NULL,
   type VARCHAR(64) NOT NULL,
   version VARCHAR(64),
-  root_user VARCHAR(64),
+  db_user VARCHAR(64),
+  db_pass VARCHAR(255),
+  charset VARCHAR(32),
   created_at DATETIME NOT NULL,
   FOREIGN KEY (project_id) REFERENCES projects(id)
+) ENGINE=InnoDB;
+
+CREATE TABLE tags (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(64) NOT NULL UNIQUE
+) ENGINE=InnoDB;
+
+CREATE TABLE project_tags (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  project_id INT NOT NULL,
+  tag_id INT NOT NULL,
+  UNIQUE KEY project_tag_unique (project_id, tag_id),
+  FOREIGN KEY (project_id) REFERENCES projects(id),
+  FOREIGN KEY (tag_id) REFERENCES tags(id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE project_participants (
@@ -95,32 +111,12 @@ CREATE TABLE project_participants (
   FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB;
 
-CREATE TABLE actions (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  project_id INT NOT NULL,
-  action_type VARCHAR(64) NOT NULL,
-  status VARCHAR(32) NOT NULL,
-  payload_json TEXT,
-  created_at DATETIME NOT NULL,
-  FOREIGN KEY (project_id) REFERENCES projects(id)
-) ENGINE=InnoDB;
-
 CREATE TABLE backups (
   id INT AUTO_INCREMENT PRIMARY KEY,
   project_id INT NOT NULL,
   backup_type VARCHAR(32) NOT NULL,
   location VARCHAR(255),
   version_label VARCHAR(64),
-  created_at DATETIME NOT NULL,
-  FOREIGN KEY (project_id) REFERENCES projects(id)
-) ENGINE=InnoDB;
-
-CREATE TABLE vhosts (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  project_id INT NOT NULL,
-  host VARCHAR(190) NOT NULL,
-  doc_root VARCHAR(255),
-  status VARCHAR(32) NOT NULL,
   created_at DATETIME NOT NULL,
   FOREIGN KEY (project_id) REFERENCES projects(id)
 ) ENGINE=InnoDB;
@@ -149,22 +145,28 @@ INSERT INTO templates (project_id, name, db_type, db_version, stack_version, not
   (1, 'MySQL 8 Base', 'mysql', '8.0', 'xampp-8.2', 'Default starter template', '{\"create_user\":\"CREATE USER ...\",\"create_db\":\"CREATE DATABASE ...\",\"config_files\":[\"config_db.php\"]}', NOW()),
   (2, 'MySQL 5 Legacy', 'mysql', '5.7', 'xampp-7.4', 'Legacy support', '{\"create_user\":\"CREATE USER ...\",\"create_db\":\"CREATE DATABASE ...\",\"config_files\":[\"config_db.php\"]}', NOW());
 
-INSERT INTO servers (project_id, name, host, port, type, version, root_user, created_at) VALUES
-  (1, 'Local MySQL', '127.0.0.1', 3306, 'mysql', '8.0', 'root', NOW()),
-  (2, 'XAMPP MySQL', 'localhost', 3306, 'mysql', '8.0', 'root', NOW());
+INSERT INTO tags (name) VALUES
+  ('projects-2025'),
+  ('mysql'),
+  ('legacy'),
+  ('portal');
+
+INSERT INTO project_tags (project_id, tag_id) VALUES
+  (1, 1),
+  (1, 2),
+  (2, 1),
+  (2, 2),
+  (2, 3),
+  (2, 4);
+
+INSERT INTO servers (project_id, name, host, port, type, version, db_user, db_pass, charset, created_at) VALUES
+  (1, 'db_dashboard', '127.0.0.1', 3306, 'mysql', '8.0', 'root', 'changeme', 'utf8mb4', NOW()),
+  (2, 'db_dashboard', 'localhost', 3306, 'mysql', '8.0', 'root', 'changeme', 'utf8mb4', NOW());
 
 INSERT INTO project_participants (project_id, user_id) VALUES
   (1, 1),
   (1, 2);
 
-INSERT INTO actions (project_id, action_type, status, payload_json, created_at) VALUES
-  (1, 'create_db', 'done', '{\"db\":\"myweb_v2\"}', NOW()),
-  (2, 'migrate', 'queued', '{\"from\":\"v1\",\"to\":\"v2\"}', NOW());
-
 INSERT INTO backups (project_id, backup_type, location, version_label, created_at) VALUES
   (1, 'sql', 'C:/backups/myweb_v2.sql', 'v2.0.1', NOW()),
   (2, 'code', 'C:/backups/portal_v1.zip', 'v1.0.0', NOW());
-
-INSERT INTO vhosts (project_id, host, doc_root, status, created_at) VALUES
-  (1, 'myweb.local', 'C:/xampp/htdocs/myweb', 'active', NOW()),
-  (2, 'portal.local', 'C:/xampp/htdocs/portal', 'active', NOW());

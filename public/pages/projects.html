@@ -29,7 +29,7 @@
         <button id="logout-btn" class="link">Logout</button>
       </nav>
       <main class="content">
-        <section class="panel two-col">
+        <section class="panel two-col bulk-import-panel">
           <div>
             <h2>New project</h2>
             <form id="project-form" class="stack">
@@ -38,20 +38,61 @@
               <input type="text" name="short_name" placeholder="Short name" />
               <input type="text" name="version" placeholder="Version" />
               <input type="text" name="type" placeholder="Type (mysql/apache/xampp)" />
-              <button type="submit" class="btn">Save</button>
+              <div class="tags-input" id="project-tags">
+                <div class="tags-chips"></div>
+                <input type="text" placeholder="Add tag" />
+                <div class="tags-suggest hidden"></div>
+              </div>
+              <button type="submit" class="btn">Create</button>
             </form>
           </div>
           <div>
-            <h2>Bulk import</h2>
-            <p class="muted">Accepts a JSON array of objects: code, name, short_name, version, type, owner_email, participants (emails).</p>
-            <textarea id="bulk-input" rows="8" placeholder='[{"code":"7777","name":"MyWeb","short_name":"myweb","version":"v2","type":"mysql","owner_email":"admin@example.com","participants":["demo@example.com"]}]'></textarea>
-            <button id="bulk-import" class="btn ghost">Import</button>
+            <div class="panel-header">
+              <h2>Bulk import</h2>
+              <button id="bulk-import" class="btn ghost">Import</button>
+            </div>
+            <p class="muted">Accepts a JSON array of objects with owner and participants objects (name, email, faculty_number).</p>
+            <textarea id="bulk-input" rows="14" placeholder='[
+    {     
+      "code": "564",
+      "name": "MyWeb App",
+      "short_name": "myweb",
+      "version": "v2",
+      "type": "mysql",
+      "owner": { "name": "pesho", "email": "pesho@example.com", "faculty_number": "123456" },
+      "participants": [
+        { "name": "gosho", "email": "gosho@example.com", "faculty_number": "123456" }
+      ]
+    },
+    {     
+      "code": "4567",
+      "name": "MyWeb",
+      "short_name": "myweb",
+      "version": "v2",
+      "type": "mysql",
+      "owner": { "name": "gosho", "email": "gosho@example.com", "faculty_number": "123456" },
+      "participants": [
+        { "name": "pesho", "email": "pesho@example.com", "faculty_number": "123456" },
+        { "name": "kiril", "email": "kiril@example.com", "faculty_number": "431" }
+      ]
+    }
+]'></textarea>
           </div>
         </section>
         <section class="panel">
           <div class="panel-header">
             <h2>Projects</h2>
-            <button id="export-projects" class="btn ghost" type="button">Export to Excel</button>
+            <div class="panel-actions">
+              <form id="projects-filter-form" class="inline-form">
+                <div class="tags-input" id="projects-filter-tags">
+                  <div class="tags-chips"></div>
+                  <input type="text" placeholder="Filter tags" />
+                  <div class="tags-suggest hidden"></div>
+                </div>
+                <button type="submit" class="btn ghost">Filter</button>
+              </form>
+              <button id="export-projects" class="btn ghost" type="button">Export to Excel</button>
+            </div>
           </div>
           <div id="projects-table" class="table"></div>
         </section>
