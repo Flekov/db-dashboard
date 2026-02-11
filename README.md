@@ -6,8 +6,6 @@ php -S localhost:80 -t public
 2) Open the UI:
 - http://localhost:80/index.html
 
-
-
 ## Notes
 - MySQL is used for metadata (users, projects, templates, actions, backups).
 - Connection settings are in `config.json`.
