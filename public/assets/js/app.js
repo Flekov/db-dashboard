@@ -46,11 +46,11 @@
 
 if (!window.iconPaths) {
   window.iconPaths = {
-    view: '/icons/visibility_26dp_FF7A3D_FILL0_wght400_GRAD0_opsz24.svg',
-    edit: '/icons/edit_26dp_FFFFFF_FILL0_wght400_GRAD0_opsz24.svg',
-    delete: '/icons/delete_26dp_FFFFFF_FILL0_wght400_GRAD0_opsz24.svg',
-    download: '/icons/download_24dp_FF7A3D_FILL0_wght400_GRAD0_opsz24.svg',
-    play: '/icons/play_arrow_24dp_FF7A3D_FILL0_wght400_GRAD0_opsz24.svg',
+    view: '/assets/icons/visibility_26dp_FF7A3D_FILL0_wght400_GRAD0_opsz24.svg',
+    edit: '/assets/icons/edit_26dp_FFFFFF_FILL0_wght400_GRAD0_opsz24.svg',
+    delete: '/assets/icons/delete_26dp_FFFFFF_FILL0_wght400_GRAD0_opsz24.svg',
+    download: '/assets/icons/download_24dp_FF7A3D_FILL0_wght400_GRAD0_opsz24.svg',
+    play: '/assets/icons/play_arrow_24dp_FF7A3D_FILL0_wght400_GRAD0_opsz24.svg',
   };
 }
 
