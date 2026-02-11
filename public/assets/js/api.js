@@ -1,4 +1,4 @@
-const API_BASE = '/api.php';
+const API_BASE = '../api.php';
 const TOKEN_KEY = 'dbdash_token';
 
 function setToken(token) {
