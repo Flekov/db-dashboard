@@ -1,10 +1,10 @@
 # DB Dashboard (final)
 1) Start the PHP built-in server:
 
-php -S localhost:8080 -t public
+php -S localhost:80 -t public
 
 2) Open the UI:
-- http://localhost:8080/index.html
+- http://localhost:80/index.html
 
 
 
